@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Ghostfolio Widget</string>
-    <string name="widget_label">Ghostfolio Portfolio</string>
+    <string name="app_name">Poltergeld</string>
+    <string name="widget_label">Poltergeld Portfolio</string>
     <string name="widget_description">Shows your Ghostfolio positions on the homescreen.</string>
 </resources>

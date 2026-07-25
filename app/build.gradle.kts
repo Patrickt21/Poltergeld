@@ -14,15 +14,15 @@ val keystoreProps = Properties().apply {
 }
 
 android {
-    namespace = "de.ghostfoliowidget.app"
+    namespace = "app.poltergeld"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "de.ghostfoliowidget.app"
+        applicationId = "app.poltergeld"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.3.0"
+        versionCode = 6
+        versionName = "1.4.0"
     }
 
     signingConfigs {

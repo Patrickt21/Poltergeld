@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.widget
+package app.poltergeld.widget
 
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidget

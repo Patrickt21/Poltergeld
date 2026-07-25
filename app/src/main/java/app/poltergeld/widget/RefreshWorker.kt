@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.widget
+package app.poltergeld.widget
 
 import android.content.Context
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -6,10 +6,10 @@ import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import de.ghostfoliowidget.app.data.GhostfolioClient
-import de.ghostfoliowidget.app.data.Holding
-import de.ghostfoliowidget.app.data.PortfolioResult
-import de.ghostfoliowidget.app.data.SettingsRepository
+import app.poltergeld.data.GhostfolioClient
+import app.poltergeld.data.Holding
+import app.poltergeld.data.PortfolioResult
+import app.poltergeld.data.SettingsRepository
 import kotlinx.serialization.json.Json
 
 /** Fetches the portfolio and writes a snapshot into every widget instance's state. */

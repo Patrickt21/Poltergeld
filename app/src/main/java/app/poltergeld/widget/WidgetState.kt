@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.widget
+package app.poltergeld.widget
 
 import kotlinx.serialization.Serializable
 

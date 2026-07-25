@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.ui
+package app.poltergeld.ui
 
 import androidx.biometric.BiometricManager.Authenticators
 import androidx.biometric.BiometricPrompt
@@ -18,7 +18,7 @@ object AppLock {
             },
         )
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Ghostfolio Widget")
+            .setTitle("Poltergeld")
             .setSubtitle("Unlock to view your portfolio")
             .setAllowedAuthenticators(
                 Authenticators.BIOMETRIC_WEAK or Authenticators.DEVICE_CREDENTIAL

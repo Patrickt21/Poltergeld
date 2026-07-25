@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.ui
+package app.poltergeld.ui
 
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
@@ -41,12 +41,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
-import de.ghostfoliowidget.app.data.GhostfolioClient
-import de.ghostfoliowidget.app.data.Holding
-import de.ghostfoliowidget.app.data.PortfolioResult
-import de.ghostfoliowidget.app.data.Settings
-import de.ghostfoliowidget.app.data.SettingsRepository
-import de.ghostfoliowidget.app.widget.WidgetScheduler
+import app.poltergeld.data.GhostfolioClient
+import app.poltergeld.data.Holding
+import app.poltergeld.data.PortfolioResult
+import app.poltergeld.data.Settings
+import app.poltergeld.data.SettingsRepository
+import app.poltergeld.widget.WidgetScheduler
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -381,7 +381,7 @@ private fun SettingsScreen(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("Ghostfolio Widget", style = MaterialTheme.typography.headlineSmall)
+        Text("Poltergeld", style = MaterialTheme.typography.headlineSmall)
         Text(
             "Enter the base URL of your Ghostfolio instance and your Security Token " +
                 "(Ghostfolio → My Ghostfolio → Security Token).",

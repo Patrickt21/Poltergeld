@@ -8,7 +8,7 @@
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:configure="de.ghostfoliowidget.app.widget.WidgetConfigActivity"
+    android:configure="app.poltergeld.widget.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable|configuration_optional"
     android:description="@string/widget_description"
     android:previewImage="@drawable/widget_preview"

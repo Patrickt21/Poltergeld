@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.data
+package app.poltergeld.data
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties

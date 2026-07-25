@@ -5,3 +5,4 @@
 * Responsive widget layouts and per-widget view configuration
 * In-app overview: time-range chips, sorting, asset-class filter, detail page
 * Token now encrypted via Android Keystore, optional app lock
+* App renamed to Poltergeld (new application id app.poltergeld)

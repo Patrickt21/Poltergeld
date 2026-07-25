@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.widget
+package app.poltergeld.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -34,7 +34,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import de.ghostfoliowidget.app.ui.SettingsActivity
+import app.poltergeld.ui.SettingsActivity
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date

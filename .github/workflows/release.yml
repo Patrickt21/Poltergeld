@@ -37,10 +37,10 @@ jobs:
           ./gradlew :app:assembleRelease --no-daemon
 
       - name: Name APK after tag
-        run: cp app/build/outputs/apk/release/app-release.apk "GhostfolioWidget-${{ github.ref_name }}.apk"
+        run: cp app/build/outputs/apk/release/app-release.apk "Poltergeld-${{ github.ref_name }}.apk"
 
       - name: Create GitHub release with APK
         uses: softprops/action-gh-release@v2
         with:
-          files: GhostfolioWidget-${{ github.ref_name }}.apk
+          files: Poltergeld-${{ github.ref_name }}.apk
           generate_release_notes: true

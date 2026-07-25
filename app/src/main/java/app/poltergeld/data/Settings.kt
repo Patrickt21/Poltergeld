@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.data
+package app.poltergeld.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey

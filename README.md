@@ -1,4 +1,4 @@
-# Ghostfolio Widget
+# Poltergeld
 
 A small, open-source Android homescreen **widget** that shows the positions from
 your self-hosted [Ghostfolio](https://github.com/ghostfolio/ghostfolio) instance.
@@ -52,13 +52,13 @@ Ghostfolio server you configure.
 
 ## Setup
 
-1. Install the APK (see below) and open **Ghostfolio Widget**.
+1. Install the APK (see below) and open **Poltergeld**.
 2. Enter your Ghostfolio **base URL**, e.g. `https://ghostfolio.example.com`
    (no trailing path).
 3. Enter your **Security Token**
    (Ghostfolio → *My Ghostfolio* → *Security Token*).
 4. Tap **Save & test**. You should see `OK – N positions loaded.`
-5. Long-press your homescreen → **Widgets** → add *Ghostfolio Portfolio*.
+5. Long-press your homescreen → **Widgets** → add *Poltergeld Portfolio*.
 
 ### Reaching a Ghostfolio behind a reverse proxy
 

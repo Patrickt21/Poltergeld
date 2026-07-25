@@ -1,4 +1,4 @@
-package de.ghostfoliowidget.app.data
+package app.poltergeld.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
