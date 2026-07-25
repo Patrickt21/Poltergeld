@@ -153,7 +153,8 @@ private fun OverviewScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Portfolio", style = MaterialTheme.typography.headlineSmall)
+                Text("Poltergeld", style = MaterialTheme.typography.headlineSmall)
+                Text("Widget for Ghostfolio", style = MaterialTheme.typography.bodySmall)
                 (result as? PortfolioResult.Success)?.let { r ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -382,6 +383,7 @@ private fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("Poltergeld", style = MaterialTheme.typography.headlineSmall)
+        Text("Widget for Ghostfolio", style = MaterialTheme.typography.titleSmall)
         Text(
             "Enter the base URL of your Ghostfolio instance and your Security Token " +
                 "(Ghostfolio → My Ghostfolio → Security Token).",

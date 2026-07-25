@@ -1,4 +1,4 @@
-# Poltergeld
+# Poltergeld — homescreen widget for Ghostfolio
 
 A small, open-source Android homescreen **widget** that shows the positions from
 your self-hosted [Ghostfolio](https://github.com/ghostfolio/ghostfolio) instance.
