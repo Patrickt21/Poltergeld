@@ -1,0 +1,2 @@
+* Widgets can now be configured from inside the app: the settings screen lists
+  every homescreen widget and opens its view/position configuration

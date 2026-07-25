@@ -1,5 +1,8 @@
 package app.poltergeld.ui
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -27,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,14 +42,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import app.poltergeld.data.GhostfolioClient
 import app.poltergeld.data.Holding
 import app.poltergeld.data.PortfolioResult
 import app.poltergeld.data.Settings
 import app.poltergeld.data.SettingsRepository
+import app.poltergeld.widget.PortfolioWidgetReceiver
+import app.poltergeld.widget.WIDGET_MODES
+import app.poltergeld.widget.WidgetConfigActivity
+import app.poltergeld.widget.WidgetKeys
 import app.poltergeld.widget.WidgetScheduler
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -375,6 +389,39 @@ private fun SettingsScreen(
     var requireUnlock by remember { mutableStateOf(initial.requireUnlock) }
     var status by remember { mutableStateOf("") }
 
+    // Homescreen widget instances, reloaded whenever the screen resumes so the
+    // list reflects config changes made in WidgetConfigActivity.
+    var widgets by remember { mutableStateOf(listOf<Pair<Int, String>>()) }
+    var lifecycleTick by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) lifecycleTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(lifecycleTick) {
+        val ids = AppWidgetManager.getInstance(context)
+            .getAppWidgetIds(ComponentName(context, PortfolioWidgetReceiver::class.java))
+        val manager = GlanceAppWidgetManager(context)
+        widgets = ids.map { id ->
+            val label = runCatching {
+                val prefs = getAppWidgetState(
+                    context, PreferencesGlanceStateDefinition, manager.getGlanceIdBy(id),
+                )
+                val mode = prefs[WidgetKeys.MODE] ?: "auto"
+                val modeLabel = WIDGET_MODES.toMap()[mode] ?: mode
+                if (mode == "custom") {
+                    "$modeLabel (${prefs[WidgetKeys.SELECTED]?.size ?: 0})"
+                } else {
+                    modeLabel
+                }
+            }.getOrDefault("Automatic")
+            id to label
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -445,6 +492,34 @@ private fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Save & test")
+        }
+
+        Text("Homescreen widgets", style = MaterialTheme.typography.titleMedium)
+        if (widgets.isEmpty()) {
+            Text(
+                "No Poltergeld widgets on the homescreen yet. Add one from the " +
+                    "launcher's widget picker.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        widgets.forEachIndexed { index, (id, label) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        context.startActivity(
+                            Intent(context, WidgetConfigActivity::class.java)
+                                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                        )
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Widget ${index + 1}", style = MaterialTheme.typography.bodyLarge)
+                    Text(label, style = MaterialTheme.typography.bodySmall)
+                }
+                Text("›", style = MaterialTheme.typography.headlineSmall)
+            }
         }
 
         TextButton(

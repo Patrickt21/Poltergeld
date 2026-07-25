@@ -46,14 +46,6 @@ import kotlinx.serialization.json.Json
  */
 class WidgetConfigActivity : ComponentActivity() {
 
-    private val modes = listOf(
-        "auto" to "Automatic (adapts to widget size)",
-        "summary" to "Summary only (total + performance)",
-        "topflop" to "Top 5 / Flop 5",
-        "all" to "All positions",
-        "custom" to "Selected positions only",
-    )
-
     private val json = Json { ignoreUnknownKeys = true }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,7 +104,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(modes) { (key, label) ->
+                items(WIDGET_MODES) { (key, label) ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

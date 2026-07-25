@@ -19,8 +19,9 @@ Ghostfolio server you configure.
   7d/30d).
 - Responsive layouts: a small widget shows just the summary, larger ones add
   top/flop and the full list. Each widget instance can also be pinned to a
-  fixed view via its configuration screen (long-press → reconfigure) —
-  including a **custom watchlist** showing only the positions you pick.
+  fixed view via its configuration screen (long-press → reconfigure, or from
+  the app's settings, which list every placed widget) — including a **custom
+  watchlist** showing only the positions you pick.
 - If a refresh fails, the widget keeps showing the last good data, marked with
   a ⚠ and the old timestamp, instead of replacing everything with an error.
 - Detects auth proxies (e.g. the Umbrel app proxy) answering instead of

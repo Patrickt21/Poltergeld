@@ -12,3 +12,12 @@ object WidgetKeys {
     /** Symbols chosen for the "custom" mode of this widget instance. */
     val SELECTED = stringSetPreferencesKey("selected_symbols")
 }
+
+/** Display modes with their user-facing labels, shared by config UIs. */
+val WIDGET_MODES = listOf(
+    "auto" to "Automatic (adapts to widget size)",
+    "summary" to "Summary only (total + performance)",
+    "topflop" to "Top 5 / Flop 5",
+    "all" to "All positions",
+    "custom" to "Selected positions only",
+)
