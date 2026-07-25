@@ -743,7 +743,7 @@ private fun SettingsScreen(
     }
 }
 
-private const val GITHUB_URL = "https://github.com/Patrickt21/poltergeld"
+private const val GITHUB_URL = "https://github.com/Patrickt21/Poltergeld"
 private const val LIGHTNING_ADDRESS = "tip@muota.li"
 
 @Composable
@@ -780,7 +780,7 @@ private fun AboutSection() {
                     tr("Source code & issues", "Quellcode & Fehlermeldungen"),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                Text("github.com/Patrickt21/poltergeld", style = MaterialTheme.typography.bodySmall)
+                Text("github.com/Patrickt21/Poltergeld", style = MaterialTheme.typography.bodySmall)
             }
             Text("›", style = MaterialTheme.typography.headlineSmall)
         }
