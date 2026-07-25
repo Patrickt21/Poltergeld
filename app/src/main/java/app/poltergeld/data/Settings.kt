@@ -19,6 +19,8 @@ data class Settings(
     val token: String = "",
     val range: String = DEFAULT_RANGE,
     val requireUnlock: Boolean = false,
+    /** UI language: "en" | "de"; blank = follow the system language. */
+    val language: String = "",
 )
 
 object SettingsRepository {
@@ -27,6 +29,7 @@ object SettingsRepository {
     private val KEY_TOKEN_ENC = stringPreferencesKey("token_enc")
     private val KEY_RANGE = stringPreferencesKey("range")
     private val KEY_REQUIRE_UNLOCK = booleanPreferencesKey("require_unlock")
+    private val KEY_LANGUAGE = stringPreferencesKey("language")
 
     suspend fun get(context: Context): Settings {
         migrateLegacyToken(context)
@@ -37,6 +40,7 @@ object SettingsRepository {
             range = (prefs[KEY_RANGE] ?: DEFAULT_RANGE)
                 .takeIf { it in SUPPORTED_RANGES } ?: DEFAULT_RANGE,
             requireUnlock = prefs[KEY_REQUIRE_UNLOCK] ?: false,
+            language = prefs[KEY_LANGUAGE] ?: "",
         )
     }
 
@@ -55,6 +59,10 @@ object SettingsRepository {
 
     suspend fun saveRequireUnlock(context: Context, value: Boolean) {
         context.dataStore.edit { it[KEY_REQUIRE_UNLOCK] = value }
+    }
+
+    suspend fun saveLanguage(context: Context, value: String) {
+        context.dataStore.edit { it[KEY_LANGUAGE] = value }
     }
 
     /** One-time upgrade: re-store a pre-1.3.0 plain-text token encrypted. */

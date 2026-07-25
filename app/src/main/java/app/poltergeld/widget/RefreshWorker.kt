@@ -20,6 +20,8 @@ class RefreshWorker(
 
     override suspend fun doWork(): Result {
         val settings = SettingsRepository.get(applicationContext)
+        // Error messages baked into the snapshot must match the chosen language.
+        app.poltergeld.L10n.apply(settings.language)
         val snapshot = when (val res = GhostfolioClient.fetchPortfolio(settings)) {
             is PortfolioResult.Success -> {
                 // Rank by performance over the selected range; holdings without a

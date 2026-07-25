@@ -35,7 +35,9 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
+import app.poltergeld.L10n
 import app.poltergeld.data.SettingsRepository
+import app.poltergeld.tr
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
@@ -77,6 +79,9 @@ class WidgetConfigActivity : ComponentActivity() {
         var positions by remember { mutableStateOf(listOf<WidgetPosition>()) }
 
         LaunchedEffect(Unit) {
+            // The config screen can be the first UI shown (widget added before
+            // opening the app), so apply the stored language here as well.
+            L10n.apply(SettingsRepository.get(this@WidgetConfigActivity).language)
             // Preload current config (reconfigure case) and the known positions.
             runCatching {
                 val manager = GlanceAppWidgetManager(this@WidgetConfigActivity)
@@ -98,13 +103,13 @@ class WidgetConfigActivity : ComponentActivity() {
             modifier = modifier.fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Widget view", style = MaterialTheme.typography.headlineSmall)
+            Text(tr("Widget view", "Widget-Ansicht"), style = MaterialTheme.typography.headlineSmall)
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(WIDGET_MODES) { (key, label) ->
+                items(WIDGET_MODE_KEYS) { key ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -112,15 +117,20 @@ class WidgetConfigActivity : ComponentActivity() {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(selected = mode == key, onClick = { mode = key })
-                        Text(label, style = MaterialTheme.typography.bodyLarge)
+                        Text(widgetModeLabel(key), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
                 if (mode == "custom") {
                     if (positions.isEmpty()) {
                         item {
                             Text(
-                                "No positions known yet. Open the app once so it can " +
-                                    "load your portfolio, then reconfigure the widget.",
+                                tr(
+                                    "No positions known yet. Open the app once so it can " +
+                                        "load your portfolio, then reconfigure the widget.",
+                                    "Noch keine Positionen bekannt. Öffne die App einmal, " +
+                                        "damit sie dein Portfolio laden kann, und konfiguriere " +
+                                        "das Widget danach erneut.",
+                                ),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -147,7 +157,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 onClick = { apply(appWidgetId, mode, selected) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Apply")
+                Text(tr("Apply", "Übernehmen"))
             }
         }
     }

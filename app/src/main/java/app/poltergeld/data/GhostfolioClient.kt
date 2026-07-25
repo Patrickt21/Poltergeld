@@ -1,5 +1,6 @@
 package app.poltergeld.data
 
+import app.poltergeld.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -19,8 +20,12 @@ sealed interface PortfolioResult {
 
 /** The request never reached Ghostfolio – an auth proxy answered instead. */
 private class ProxyBlockedException : Exception(
-    "Blocked by reverse proxy (e.g. Umbrel login). " +
-        "Re-add PROXY_AUTH_WHITELIST \"/api/*\" for the Ghostfolio app."
+    tr(
+        "Blocked by reverse proxy (e.g. Umbrel login). " +
+            "Re-add PROXY_AUTH_WHITELIST \"/api/*\" for the Ghostfolio app.",
+        "Von einem Reverse-Proxy blockiert (z. B. Umbrel-Login). " +
+            "PROXY_AUTH_WHITELIST \"/api/*\" für die Ghostfolio-App wieder eintragen.",
+    )
 )
 
 /**
@@ -38,14 +43,18 @@ object GhostfolioClient {
 
     suspend fun fetchPortfolio(settings: Settings): PortfolioResult = withContext(Dispatchers.IO) {
         if (settings.baseUrl.isBlank() || settings.token.isBlank()) {
-            return@withContext PortfolioResult.Error("Not configured")
+            return@withContext PortfolioResult.Error(tr("Not configured", "Nicht eingerichtet"))
         }
         try {
             val bearer = authenticate(settings)
-                ?: return@withContext PortfolioResult.Error("Authentication failed – check token")
+                ?: return@withContext PortfolioResult.Error(
+                    tr("Authentication failed – check token", "Anmeldung fehlgeschlagen – Token prüfen")
+                )
 
             val body = get("${settings.baseUrl}/api/v1/portfolio/holdings?range=${settings.range}", bearer)
-                ?: return@withContext PortfolioResult.Error("Could not load holdings")
+                ?: return@withContext PortfolioResult.Error(
+                    tr("Could not load holdings", "Positionen konnten nicht geladen werden")
+                )
 
             val parsed = json.decodeFromString<HoldingsResponse>(body)
             val holdings = parsed.holdings
@@ -70,7 +79,7 @@ object GhostfolioClient {
 
             PortfolioResult.Success(holdings, total, baseCurrency, portfolioPerformance)
         } catch (e: Exception) {
-            PortfolioResult.Error(e.message ?: "Unknown error")
+            PortfolioResult.Error(e.message ?: tr("Unknown error", "Unbekannter Fehler"))
         }
     }
 

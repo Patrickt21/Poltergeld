@@ -1,0 +1,8 @@
+* Guided first-run onboarding: language, connection test, app lock, widget pinning
+* German translation (selectable during onboarding and in the settings)
+* Redesigned settings: sectioned layout, add widgets directly from the app,
+  list of all placed widgets
+* Polished app lock: branded lock screen, auto re-lock when leaving the app,
+  enable only after successful authentication, hidden recents preview and
+  blocked screenshots while enabled
+* About section with source link and Lightning tip address

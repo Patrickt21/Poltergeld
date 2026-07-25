@@ -31,7 +31,12 @@ Ghostfolio server you configure.
   (Android widgets cannot host text input, so search lives in the app — one
   tap away from the widget).
 - Security token encrypted at rest via the Android Keystore; optional app lock
-  (fingerprint / device PIN).
+  (fingerprint / device PIN) that re-locks when the app leaves the foreground
+  and, while enabled, blanks the recents preview and blocks screenshots.
+- Guided first-run onboarding: pick your language, connect and test the server,
+  optionally enable the app lock and pin the widget straight to the homescreen.
+- English and German UI (selectable during onboarding and in the settings;
+  follows the system language by default).
 - Hourly background refresh via WorkManager.
 - Dark, compact design that resizes on the homescreen.
 
@@ -54,13 +59,11 @@ Ghostfolio server you configure.
 
 ## Setup
 
-1. Install the APK (see below) and open **Poltergeld**.
-2. Enter your Ghostfolio **base URL**, e.g. `https://ghostfolio.example.com`
-   (no trailing path).
-3. Enter your **Security Token**
-   (Ghostfolio → *My Ghostfolio* → *Security Token*).
-4. Tap **Save & test**. You should see `OK – N positions loaded.`
-5. Long-press your homescreen → **Widgets** → add *Poltergeld Portfolio*.
+Install the APK (see below) and open **Poltergeld** — the onboarding walks you
+through everything: language, base URL (e.g. `https://ghostfolio.example.com`,
+no trailing path), your **Security Token** (Ghostfolio → *My Ghostfolio* →
+*Security Token*) with a connection test, the optional app lock, and adding
+the widget to your homescreen.
 
 ### Reaching a Ghostfolio behind a reverse proxy
 
@@ -128,6 +131,11 @@ The client performs two Ghostfolio REST calls:
 
 1. `POST /api/v1/auth/anonymous` with `{"accessToken": "<token>"}` → bearer token.
 2. `GET /api/v1/portfolio/holdings` with `Authorization: Bearer <token>`.
+
+## Support
+
+If Poltergeld is useful to you, you can leave a tip via Lightning:
+**⚡ `tip@muota.li`** (also reachable from the app's *About* section).
 
 ## License
 

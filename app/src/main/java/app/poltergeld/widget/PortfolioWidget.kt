@@ -34,6 +34,9 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import app.poltergeld.L10n
+import app.poltergeld.data.SettingsRepository
+import app.poltergeld.tr
 import app.poltergeld.ui.SettingsActivity
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
@@ -58,6 +61,8 @@ class PortfolioWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        // Widgets render outside any activity, so apply the stored language here.
+        L10n.apply(SettingsRepository.get(context).language)
         provideContent {
             val raw = currentState(WidgetKeys.SNAPSHOT)
             val snapshot = raw?.let {
@@ -89,8 +94,12 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, selected: Set<St
             .clickable(actionStartActivity<SettingsActivity>())
     ) {
         when {
-            snapshot == null -> CenterMessage("Tap to set up Ghostfolio")
-            !snapshot.ok -> CenterMessage(snapshot.error ?: "Could not load data")
+            snapshot == null -> CenterMessage(
+                tr("Tap to set up Ghostfolio", "Tippen, um Ghostfolio einzurichten")
+            )
+            !snapshot.ok -> CenterMessage(
+                snapshot.error ?: tr("Could not load data", "Daten konnten nicht geladen werden")
+            )
             else -> {
                 // "auto" picks the richest layout that fits the current size;
                 // an explicit per-widget mode (from the config screen) wins.
@@ -125,13 +134,16 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, selected: Set<St
                             items(snapshot.flop) { pos -> PositionRow(pos, snapshot.currency) }
                         }
                         if (showAll) {
-                            item { SectionLabel("All positions") }
+                            item { SectionLabel(tr("All positions", "Alle Positionen")) }
                             items(snapshot.positions) { pos -> PositionRow(pos, snapshot.currency) }
                         }
                         if (effective == "custom") {
                             if (custom.isEmpty()) {
                                 item {
-                                    SectionLabel("No positions selected – long-press the widget and reconfigure")
+                                    SectionLabel(tr(
+                                        "No positions selected – long-press the widget and reconfigure",
+                                        "Keine Positionen ausgewählt – Widget lange drücken und neu konfigurieren",
+                                    ))
                                 }
                             } else {
                                 items(custom) { pos -> PositionRow(pos, snapshot.currency) }
@@ -252,7 +264,7 @@ private fun PositionRow(pos: WidgetPosition, currency: String) {
             )
             pos.allocation?.let {
                 Text(
-                    "${formatPercent(it * 100)} of portfolio",
+                    formatPercent(it * 100) + tr(" of portfolio", " des Portfolios"),
                     style = TextStyle(color = androidx.glance.unit.ColorProvider(muted), fontSize = 10.sp),
                 )
             }
