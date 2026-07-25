@@ -1,0 +1,16 @@
+A small, tracker-free Android homescreen widget for self-hosted Ghostfolio
+instances.
+
+Features:
+
+* Homescreen widget with your total portfolio value and overall performance
+* Top 5 / flop 5 holdings by performance, plus the full list of positions
+* Switchable time horizon directly in the widget (24h, week to date, month to
+  date, 1 year)
+* Per-widget view configuration and responsive layouts
+* In-app portfolio overview with search, sorting and asset-class filter
+* Detail view per position (market price, quantity, investment, dividend)
+* Security token encrypted with the Android Keystore, optional app lock via
+  fingerprint or device PIN
+* No trackers, no third-party networking libraries, connects only to your own
+  Ghostfolio server

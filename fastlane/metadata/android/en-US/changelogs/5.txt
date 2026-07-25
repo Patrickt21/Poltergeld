@@ -1,0 +1,7 @@
+* Portfolio performance in the widget header
+* Manual refresh button in the widget
+* Keeps last data visible when a refresh fails (marked stale)
+* Clear error message when a reverse proxy (e.g. Umbrel) blocks the API
+* Responsive widget layouts and per-widget view configuration
+* In-app overview: time-range chips, sorting, asset-class filter, detail page
+* Token now encrypted via Android Keystore, optional app lock

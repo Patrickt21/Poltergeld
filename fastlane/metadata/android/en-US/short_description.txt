@@ -1,0 +1,1 @@
+Homescreen widget for your self-hosted Ghostfolio portfolio
