@@ -75,5 +75,6 @@ class RefreshWorker(
         value = displayValue,
         allocation = allocationInPercentage,
         performance = performance,
+        symbol = assetProfile?.symbol ?: symbol ?: displayName,
     )
 }

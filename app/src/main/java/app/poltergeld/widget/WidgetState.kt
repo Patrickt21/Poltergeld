@@ -24,4 +24,6 @@ data class WidgetPosition(
     val value: Double,
     val allocation: Double?,
     val performance: Double?,
+    /** Stable identifier used by the per-widget position picker. */
+    val symbol: String = "",
 )

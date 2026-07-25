@@ -1,0 +1,2 @@
+* New widget mode "Selected positions only": pick individual holdings per
+  widget instance via the configuration screen

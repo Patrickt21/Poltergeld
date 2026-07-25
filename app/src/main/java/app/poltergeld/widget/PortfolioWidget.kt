@@ -64,7 +64,8 @@ class PortfolioWidget : GlanceAppWidget() {
                 runCatching { snapshotJson.decodeFromString<WidgetSnapshot>(it) }.getOrNull()
             }
             val mode = currentState(WidgetKeys.MODE) ?: "auto"
-            WidgetBody(snapshot, mode)
+            val selected = currentState(WidgetKeys.SELECTED) ?: emptySet()
+            WidgetBody(snapshot, mode, selected)
         }
     }
 
@@ -78,7 +79,7 @@ class PortfolioWidget : GlanceAppWidget() {
 private val rangeChips = listOf("1d" to "24h", "wtd" to "1W", "mtd" to "1M", "1y" to "1J")
 
 @Composable
-private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String) {
+private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, selected: Set<String>) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -105,9 +106,14 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String) {
                 }
                 val showTopFlop = effective == "topflop" || effective == "full"
                 val showAll = effective == "all" || effective == "full"
+                val custom = if (effective == "custom") {
+                    snapshot.positions.filter { it.symbol in selected }
+                } else {
+                    emptyList()
+                }
 
                 Header(snapshot)
-                if (showTopFlop || showAll) {
+                if (showTopFlop || showAll || effective == "custom") {
                     Spacer(GlanceModifier.height(8.dp))
                     RangeChipRow(snapshot.range)
                     Spacer(GlanceModifier.height(6.dp))
@@ -121,6 +127,15 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String) {
                         if (showAll) {
                             item { SectionLabel("All positions") }
                             items(snapshot.positions) { pos -> PositionRow(pos, snapshot.currency) }
+                        }
+                        if (effective == "custom") {
+                            if (custom.isEmpty()) {
+                                item {
+                                    SectionLabel("No positions selected – long-press the widget and reconfigure")
+                                }
+                            } else {
+                                items(custom) { pos -> PositionRow(pos, snapshot.currency) }
+                            }
                         }
                     }
                 }
