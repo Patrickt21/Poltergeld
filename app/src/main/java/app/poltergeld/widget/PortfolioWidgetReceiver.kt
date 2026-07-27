@@ -10,6 +10,10 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import app.poltergeld.data.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class PortfolioWidgetReceiver : GlanceAppWidgetReceiver() {
@@ -17,8 +21,17 @@ class PortfolioWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        WidgetScheduler.schedulePeriodic(context)
-        WidgetScheduler.refreshNow(context)
+        // The stored refresh interval lives in DataStore, which must not be
+        // read on the receiver's main thread; keep the receiver alive briefly.
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                WidgetScheduler.schedulePeriodic(context)
+                WidgetScheduler.refreshNow(context)
+            } finally {
+                pending.finish()
+            }
+        }
     }
 
     override fun onUpdate(
@@ -35,8 +48,10 @@ object WidgetScheduler {
     private const val PERIODIC = "ghostfolio_periodic_refresh"
     private const val ONESHOT = "ghostfolio_refresh_now"
 
-    fun schedulePeriodic(context: Context) {
-        val req = PeriodicWorkRequestBuilder<RefreshWorker>(1, TimeUnit.HOURS)
+    /** (Re-)schedules the periodic refresh using the stored interval. */
+    suspend fun schedulePeriodic(context: Context) {
+        val minutes = SettingsRepository.get(context).refreshMinutes
+        val req = PeriodicWorkRequestBuilder<RefreshWorker>(minutes.toLong(), TimeUnit.MINUTES)
             .setConstraints(
                 Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
             )

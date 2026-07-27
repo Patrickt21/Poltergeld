@@ -5,7 +5,7 @@
 -keepclasseswithmembers class ** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class de.ghostfoliowidget.app.**$$serializer { *; }
--keepclassmembers class de.ghostfoliowidget.app.** {
+-keep,includedescriptorclasses class app.poltergeld.**$$serializer { *; }
+-keepclassmembers class app.poltergeld.** {
     *** Companion;
 }

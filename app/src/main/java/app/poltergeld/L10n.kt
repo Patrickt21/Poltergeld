@@ -30,6 +30,9 @@ object L10n {
 
     private fun systemDefault(): String =
         if (Locale.getDefault().language == "de") "de" else "en"
+
+    /** Locale used for number formatting, following the chosen UI language. */
+    fun numberLocale(): Locale = if (lang == "de") Locale.GERMANY else Locale.US
 }
 
 fun tr(en: String, de: String): String = if (L10n.lang == "de") de else en

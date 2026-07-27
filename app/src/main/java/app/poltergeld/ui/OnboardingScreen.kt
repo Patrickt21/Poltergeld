@@ -245,10 +245,15 @@ private fun ConnectStep(onBack: () -> Unit, onNext: () -> Unit) {
         onClick = {
             scope.launch {
                 test = TestState.Running
-                SettingsRepository.save(context, url, token)
-                val saved = SettingsRepository.get(context)
-                test = when (val r = GhostfolioClient.fetchPortfolio(saved)) {
+                // Verify the entered credentials first; only a working
+                // configuration is stored.
+                val candidate = app.poltergeld.data.Settings(
+                    baseUrl = SettingsRepository.normalizeUrl(url),
+                    token = token.trim(),
+                )
+                test = when (val r = GhostfolioClient.fetchPortfolio(context, candidate, useCache = false)) {
                     is PortfolioResult.Success -> {
+                        SettingsRepository.save(context, url, token)
                         WidgetScheduler.schedulePeriodic(context)
                         WidgetScheduler.refreshNow(context)
                         TestState.Ok(r.holdings.size)
@@ -260,7 +265,7 @@ private fun ConnectStep(onBack: () -> Unit, onNext: () -> Unit) {
         enabled = url.isNotBlank() && token.isNotBlank() && test !is TestState.Running,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(tr("Save & test connection", "Speichern & Verbindung testen"))
+        Text(tr("Test & save connection", "Verbindung testen & speichern"))
     }
 
     when (val t = test) {
@@ -382,12 +387,14 @@ private fun WidgetStep(onBack: () -> Unit, onFinish: () -> Unit) {
     Text(tr("Add the widget", "Widget hinzufügen"), style = MaterialTheme.typography.headlineSmall)
     Text(
         tr(
-            "The widget shows your portfolio on the homescreen and refreshes hourly. " +
-                "A small widget shows just the summary, larger ones add top/flop and " +
-                "the full position list.",
-            "Das Widget zeigt dein Portfolio auf dem Homescreen und aktualisiert sich " +
-                "stündlich. Ein kleines Widget zeigt nur die Zusammenfassung, größere " +
-                "zusätzlich Top/Flop und die komplette Positionsliste.",
+            "The widget shows your portfolio on the homescreen and refreshes " +
+                "regularly (interval adjustable in the settings). A small widget " +
+                "shows just the summary, larger ones add top/flop and the full " +
+                "position list.",
+            "Das Widget zeigt dein Portfolio auf dem Homescreen und aktualisiert " +
+                "sich regelmäßig (Intervall in den Einstellungen wählbar). Ein " +
+                "kleines Widget zeigt nur die Zusammenfassung, größere zusätzlich " +
+                "Top/Flop und die komplette Positionsliste.",
         ),
         style = MaterialTheme.typography.bodyMedium,
     )

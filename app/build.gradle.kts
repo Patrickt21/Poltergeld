@@ -15,14 +15,14 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "app.poltergeld"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "app.poltergeld"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 9
-        versionName = "1.7.0"
+        targetSdk = 35
+        versionCode = 10
+        versionName = "1.8.0"
     }
 
     signingConfigs {
@@ -89,4 +89,6 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
+
+    testImplementation("junit:junit:4.13.2")
 }

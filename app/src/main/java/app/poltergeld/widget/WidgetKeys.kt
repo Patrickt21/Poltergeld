@@ -10,6 +10,9 @@ object WidgetKeys {
     /** Per-instance display mode: auto | summary | topflop | all | custom. */
     val MODE = stringPreferencesKey("display_mode")
 
+    /** Per-instance time range; unset = follow the app-wide range setting. */
+    val RANGE = stringPreferencesKey("display_range")
+
     /** Symbols chosen for the "custom" mode of this widget instance. */
     val SELECTED = stringSetPreferencesKey("selected_symbols")
 }

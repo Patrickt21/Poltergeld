@@ -92,7 +92,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 prefs[WidgetKeys.MODE]?.let { mode = it }
                 prefs[WidgetKeys.SELECTED]?.let { selected = it }
             }
-            SettingsRepository.getLastSnapshot(this@WidgetConfigActivity)?.let { raw ->
+            SettingsRepository.getAnyLastSnapshot(this@WidgetConfigActivity)?.let { raw ->
                 runCatching { json.decodeFromString<WidgetSnapshot>(raw) }
                     .getOrNull()
                     ?.let { positions = it.positions }

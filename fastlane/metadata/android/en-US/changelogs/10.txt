@@ -1,0 +1,9 @@
+* Test & save: connection is now verified before overwriting your saved settings
+* Cached login token and base currency cut background refreshes down to fewer requests
+* Configurable refresh interval (15 min / 30 min / 1 h / 6 h)
+* Each widget can now pin its own time range independently of the others
+* Widget follows light/dark system theme instead of always being dark
+* Numbers and percentages now format according to the chosen app language
+* Stale data is now labelled with "yesterday" or the date instead of a misleading time
+* http:// is now only allowed for local-network addresses; public servers require https://
+* Background refresh no longer retries endlessly on configuration errors (e.g. wrong token)

@@ -27,3 +27,17 @@ data class WidgetPosition(
     /** Stable identifier used by the per-widget position picker. */
     val symbol: String = "",
 )
+
+/**
+ * Ranks positions by performance over the selected range: the best [n] and –
+ * from the remainder, so the lists never overlap – the worst [n], worst first.
+ * Positions without a performance figure (e.g. cash) can't be ranked.
+ */
+fun topFlop(positions: List<WidgetPosition>, n: Int = 5): Pair<List<WidgetPosition>, List<WidgetPosition>> {
+    val ranked = positions
+        .filter { it.performance != null }
+        .sortedByDescending { it.performance!! }
+    val top = ranked.take(n)
+    val flop = ranked.drop(top.size).takeLast(n).sortedBy { it.performance!! }
+    return top to flop
+}

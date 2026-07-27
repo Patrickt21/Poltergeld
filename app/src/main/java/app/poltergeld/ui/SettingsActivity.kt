@@ -61,8 +61,10 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import app.poltergeld.Format
 import app.poltergeld.L10n
 import app.poltergeld.data.GhostfolioClient
+import app.poltergeld.data.SUPPORTED_REFRESH_MINUTES
 import app.poltergeld.data.Holding
 import app.poltergeld.data.PortfolioResult
 import app.poltergeld.data.Settings
@@ -79,7 +81,7 @@ import java.util.Locale
 private val green = Color(0xFF34D399)
 private val red = Color(0xFFF87171)
 
-private val rangeChips = listOf("1d" to "24h", "wtd" to "1W", "mtd" to "1M", "1y" to "1J")
+private fun rangeChips() = listOf("1d" to "24h", "wtd" to "1W", "mtd" to "1M", "1y" to tr("1Y", "1J"))
 
 // FragmentActivity (not ComponentActivity) so BiometricPrompt can attach.
 class SettingsActivity : FragmentActivity() {
@@ -226,7 +228,7 @@ private fun OverviewScreen(
 
     LaunchedEffect(reload, range) {
         result = null
-        result = GhostfolioClient.fetchPortfolio(settings.copy(range = range))
+        result = GhostfolioClient.fetchPortfolio(context, settings.copy(range = range))
     }
 
     val current = selected
@@ -276,7 +278,7 @@ private fun OverviewScreen(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            rangeChips.forEach { (key, label) ->
+            rangeChips().forEach { (key, label) ->
                 FilterChip(
                     selected = key == range,
                     onClick = {
@@ -395,9 +397,11 @@ private fun DetailScreen(
             DetailRow("Performance", signedPercent(p), if (p >= 0) green else red)
         }
         holding.allocationInPercentage?.let {
-            DetailRow(tr("Allocation", "Gewichtung"), String.format(Locale.GERMANY, "%.1f%%", it * 100))
+            DetailRow(tr("Allocation", "Gewichtung"), Format.percent(it * 100))
         }
-        holding.quantity?.let { DetailRow(tr("Quantity", "Stückzahl"), String.format(Locale.GERMANY, "%,.4f", it)) }
+        holding.quantity?.let {
+            DetailRow(tr("Quantity", "Stückzahl"), String.format(L10n.numberLocale(), "%,.4f", it))
+        }
         holding.marketPrice?.let {
             DetailRow(tr("Market price", "Marktpreis"), formatMoney(it, holding.assetProfile?.currency.orEmpty()))
         }
@@ -444,8 +448,7 @@ private fun HoldingRow(h: Holding, currency: String) {
             Text(h.displayName, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
             h.allocationInPercentage?.let {
                 Text(
-                    String.format(Locale.GERMANY, "%.1f%%", it * 100) +
-                        tr(" of portfolio", " des Portfolios"),
+                    Format.percent(it * 100) + tr(" of portfolio", " des Portfolios"),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -476,6 +479,7 @@ private fun SettingsScreen(
 
     var url by remember { mutableStateOf(initial.baseUrl) }
     var token by remember { mutableStateOf(initial.token) }
+    var refreshMinutes by remember { mutableIntStateOf(initial.refreshMinutes) }
     var requireUnlock by remember { mutableStateOf(initial.requireUnlock) }
     var connectionStatus by remember { mutableStateOf("") }
     var lockStatus by remember { mutableStateOf("") }
@@ -584,28 +588,67 @@ private fun SettingsScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        SettingsRepository.save(context, url, token)
                         connectionStatus = tr("Testing connection…", "Verbindung wird getestet…")
-                        val saved = SettingsRepository.get(context)
-                        when (val r = GhostfolioClient.fetchPortfolio(saved)) {
-                            is PortfolioResult.Success ->
+                        // Test the candidate credentials first; only a working
+                        // configuration may replace the stored one.
+                        val candidate = initial.copy(
+                            baseUrl = SettingsRepository.normalizeUrl(url),
+                            token = token.trim(),
+                        )
+                        when (val r = GhostfolioClient.fetchPortfolio(context, candidate, useCache = false)) {
+                            is PortfolioResult.Success -> {
+                                SettingsRepository.save(context, url, token)
                                 connectionStatus = tr(
-                                    "OK – ${r.holdings.size} positions loaded.",
-                                    "OK – ${r.holdings.size} Positionen geladen.",
+                                    "OK – ${r.holdings.size} positions loaded and saved.",
+                                    "OK – ${r.holdings.size} Positionen geladen und gespeichert.",
                                 )
+                                WidgetScheduler.schedulePeriodic(context)
+                                WidgetScheduler.refreshNow(context)
+                            }
                             is PortfolioResult.Error ->
-                                connectionStatus = tr("Error: ", "Fehler: ") + r.message
+                                connectionStatus = tr("Error: ", "Fehler: ") + r.message + tr(
+                                    " – previous settings kept.",
+                                    " – bisherige Einstellungen bleiben erhalten.",
+                                )
                         }
-                        WidgetScheduler.schedulePeriodic(context)
-                        WidgetScheduler.refreshNow(context)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(tr("Save & test", "Speichern & testen"))
+                Text(tr("Test & save", "Testen & speichern"))
             }
             if (connectionStatus.isNotBlank()) {
                 Text(connectionStatus, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        Section(tr("Refresh interval", "Aktualisierungsintervall")) {
+            Text(
+                tr(
+                    "How often the widgets fetch fresh data in the background. " +
+                        "Shorter intervals use more battery.",
+                    "Wie oft die Widgets im Hintergrund neue Daten laden. " +
+                        "Kürzere Intervalle verbrauchen mehr Akku.",
+                ),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                SUPPORTED_REFRESH_MINUTES.forEach { minutes ->
+                    FilterChip(
+                        selected = minutes == refreshMinutes,
+                        onClick = {
+                            refreshMinutes = minutes
+                            scope.launch {
+                                SettingsRepository.saveRefreshMinutes(context, minutes)
+                                WidgetScheduler.schedulePeriodic(context)
+                            }
+                        },
+                        label = { Text(intervalLabel(minutes)) },
+                    )
+                }
             }
         }
 
@@ -728,12 +771,13 @@ private fun SettingsScreen(
             Text(
                 tr(
                     "Each widget can show its own view – summary, top & flop, all " +
-                        "positions or a custom watchlist. Tap a widget above to " +
-                        "configure it. Data refreshes hourly.",
+                        "positions or a custom watchlist – and pin its own time " +
+                        "range via the chips in the widget. Tap a widget above to " +
+                        "configure it.",
                     "Jedes Widget kann seine eigene Ansicht zeigen – Zusammenfassung, " +
-                        "Top & Flop, alle Positionen oder eine eigene Watchlist. Tippe " +
-                        "oben auf ein Widget, um es zu konfigurieren. Daten werden " +
-                        "stündlich aktualisiert.",
+                        "Top & Flop, alle Positionen oder eine eigene Watchlist – und " +
+                        "über die Chips im Widget seinen eigenen Zeitraum festlegen. " +
+                        "Tippe oben auf ein Widget, um es zu konfigurieren.",
                 ),
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -839,11 +883,10 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
     }
 }
 
-private fun signedPercent(fraction: Double): String =
-    (if (fraction >= 0) "+" else "") + String.format(Locale.GERMANY, "%.1f%%", fraction * 100)
+private fun intervalLabel(minutes: Int): String =
+    if (minutes < 60) "$minutes min" else "${minutes / 60} h"
 
-private fun formatMoney(value: Double, currency: String): String {
-    val n = String.format(Locale.GERMANY, "%,.2f", value)
-    return if (currency.isBlank()) n else "$n $currency"
-}
+private fun signedPercent(fraction: Double): String = Format.signedPercent(fraction)
+
+private fun formatMoney(value: Double, currency: String): String = Format.money(value, currency)
 
