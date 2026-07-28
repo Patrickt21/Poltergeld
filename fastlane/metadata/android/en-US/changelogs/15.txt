@@ -1,0 +1,4 @@
+* Privacy Mode: unlocking the widget now closes instantly instead of waiting
+  for a full widget redraw first
+* Fixed: hiding revealed amounts again now updates every placed widget, not
+  just the one you tapped

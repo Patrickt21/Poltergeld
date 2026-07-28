@@ -1,0 +1,6 @@
+* Fixed a serious widget bug: tapping the privacy lock icon (or refreshing)
+  could occasionally open the wrong position's detail page, because the
+  widget's position list didn't give Android stable per-row identities –
+  now keyed by symbol instead of the whole (frequently changing) row data
+* Fixed: the position detail screen silently showed no chart at all when
+  there wasn't enough price history yet, instead of saying so

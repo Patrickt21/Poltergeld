@@ -1,0 +1,9 @@
+* Security fix: recents preview and screenshots are now also blocked while
+  Privacy Mode (app) is revealed, not just while the app lock is enabled
+* Fixed: tapping a widget position, then later refreshing or changing the
+  time range, no longer yanks you back into that position's detail screen
+* Fixed: the position detail screen no longer fails outright when the
+  cached login token had merely expired — it now retries like the rest of
+  the app
+* The detail screen now shows an actual error message instead of silently
+  looking empty when the chart or activity history fails to load

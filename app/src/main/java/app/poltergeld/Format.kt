@@ -12,6 +12,9 @@ import java.util.Locale
  */
 object Format {
 
+    /** Stand-in for a monetary amount while privacy mode hides it. */
+    const val MASK = "••••"
+
     fun money(value: Double, currency: String, locale: Locale = L10n.numberLocale()): String {
         val n = String.format(locale, "%,.2f", value)
         return if (currency.isBlank()) n else "$n $currency"

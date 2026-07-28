@@ -1,0 +1,14 @@
+* Fixed a real bug behind the widget's privacy lock: unlocking it could
+  bring the whole app to the foreground instead of just revealing the
+  amounts in place, because the invisible unlock screen shared a task with
+  the app and Android merged them. It now runs in its own isolated task and
+  can no longer surface the app by accident
+* Fixed: rapidly tapping the widget's lock icon twice could show two
+  overlapping fingerprint/PIN prompts at once
+* Privacy Mode (widget): how long revealed amounts stay visible before
+  auto-hiding again is now a setting (15s to 5 minutes) instead of a fixed
+  60 seconds
+* Removed the separate "hide again immediately" tap on the widget's lock
+  icon while revealed – amounts now always auto-hide after the configured
+  duration, one fewer tap target in a spot that has repeatedly had
+  reliability trouble

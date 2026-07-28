@@ -2,6 +2,8 @@ package app.poltergeld.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +40,7 @@ import androidx.glance.text.TextStyle
 import app.poltergeld.Format
 import app.poltergeld.L10n
 import app.poltergeld.data.SettingsRepository
+import app.poltergeld.data.WidgetPrivacy
 import app.poltergeld.tr
 import app.poltergeld.ui.SettingsActivity
 import kotlinx.serialization.json.Json
@@ -62,9 +65,27 @@ class PortfolioWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val settings = SettingsRepository.get(context)
         // Widgets render outside any activity, so apply the stored language here.
-        L10n.apply(SettingsRepository.get(context).language)
+        L10n.apply(settings.language)
+        val initialPrivacy = WidgetPrivacy(
+            enabled = settings.privacyModeWidget,
+            unlockedUntil = SettingsRepository.getPrivacyUnlockedUntil(context),
+        )
         provideContent {
+            // Amounts stay hidden until a privacy reveal (UnlockPrivacyActivity)
+            // is still within its window; RemaskWorker clears it once that
+            // expires. The state must be observed from inside the composition:
+            // Glance keeps this session alive for a while after rendering, and
+            // update()/updateAll() on a live session only reload currentState
+            // and recompose – nothing before provideContent re-runs. A one-shot
+            // read up there froze the masked flag for the session's lifetime,
+            // so unlocking (or re-masking) had no visible effect whenever the
+            // widget had rendered within the previous few seconds.
+            val privacy by SettingsRepository.widgetPrivacyFlow(context)
+                .collectAsState(initial = initialPrivacy)
+            val masked = privacy.enabled &&
+                System.currentTimeMillis() >= privacy.unlockedUntil
             val raw = currentState(WidgetKeys.SNAPSHOT)
             val snapshot = raw?.let {
                 runCatching { snapshotJson.decodeFromString<WidgetSnapshot>(it) }.getOrNull()
@@ -72,7 +93,7 @@ class PortfolioWidget : GlanceAppWidget() {
             val mode = currentState(WidgetKeys.MODE) ?: "auto"
             val range = currentState(WidgetKeys.RANGE)
             val selected = currentState(WidgetKeys.SELECTED) ?: emptySet()
-            WidgetBody(snapshot, mode, range, selected)
+            WidgetBody(snapshot, mode, range, selected, masked, privacy.enabled)
         }
     }
 
@@ -85,15 +106,43 @@ class PortfolioWidget : GlanceAppWidget() {
 /** Ghostfolio API range keys and their chip labels. */
 private fun rangeChips() = listOf("1d" to "24h", "wtd" to "1W", "mtd" to "1M", "1y" to tr("1Y", "1J"))
 
+/**
+ * Glance's LazyColumn renders through Android's RemoteViews collection
+ * adapter, which recycles item views and their click PendingIntents by
+ * itemId. [WidgetPosition] is a data class whose default hashCode – Glance's
+ * itemId fallback – includes volatile fields (value, performance) that
+ * change on every refresh, so the "same" position gets a different id each
+ * time and the adapter can hand a tap the *previous* row's click target
+ * (opening the wrong position). Keying by symbol only keeps identity stable
+ * across refreshes; the section prefix keeps top/flop/all/custom from
+ * colliding when the same symbol appears in more than one of them at once
+ * (e.g. "full" mode shows a position in both Top 5 and All positions).
+ */
+private fun positionItemId(section: String, pos: WidgetPosition): Long =
+    "$section:${pos.symbol}".hashCode().toLong()
+
 @Composable
-private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, range: String?, selected: Set<String>) {
+private fun WidgetBody(
+    snapshot: WidgetSnapshot?,
+    mode: String,
+    range: String?,
+    selected: Set<String>,
+    masked: Boolean,
+    privacyOn: Boolean,
+) {
+    // No whole-body click here on purpose: with data loaded, this area
+    // contains its own clickable children (lock icon, refresh, range chips,
+    // position rows) and Glance/RemoteViews has proven unreliable at
+    // resolving taps when a clickable container wraps other clickable
+    // elements – taps meant for a child kept landing on this one instead.
+    // Each interactive area below sets its own click target as a sibling,
+    // never a descendant, of any other clickable element.
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(bg)
             .cornerRadius(16.dp)
             .padding(12.dp)
-            .clickable(actionStartActivity<SettingsActivity>())
     ) {
         when {
             snapshot == null -> CenterMessage(
@@ -123,7 +172,7 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, range: String?, 
                     emptyList()
                 }
 
-                Header(snapshot)
+                Header(snapshot, masked, privacyOn)
                 if (showTopFlop || showAll || effective == "custom") {
                     Spacer(GlanceModifier.height(8.dp))
                     RangeChipRow(range ?: snapshot.range)
@@ -131,13 +180,19 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, range: String?, 
                     LazyColumn {
                         if (showTopFlop) {
                             item { SectionLabel("Top 5") }
-                            items(snapshot.top) { pos -> PositionRow(pos, snapshot.currency) }
+                            items(snapshot.top, itemId = { positionItemId("top", it) }) { pos ->
+                                PositionRow(pos, snapshot.currency, masked)
+                            }
                             item { SectionLabel("Flop 5") }
-                            items(snapshot.flop) { pos -> PositionRow(pos, snapshot.currency) }
+                            items(snapshot.flop, itemId = { positionItemId("flop", it) }) { pos ->
+                                PositionRow(pos, snapshot.currency, masked)
+                            }
                         }
                         if (showAll) {
                             item { SectionLabel(tr("All positions", "Alle Positionen")) }
-                            items(snapshot.positions) { pos -> PositionRow(pos, snapshot.currency) }
+                            items(snapshot.positions, itemId = { positionItemId("all", it) }) { pos ->
+                                PositionRow(pos, snapshot.currency, masked)
+                            }
                         }
                         if (effective == "custom") {
                             if (custom.isEmpty()) {
@@ -148,7 +203,9 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, range: String?, 
                                     ))
                                 }
                             } else {
-                                items(custom) { pos -> PositionRow(pos, snapshot.currency) }
+                                items(custom, itemId = { positionItemId("custom", it) }) { pos ->
+                                    PositionRow(pos, snapshot.currency, masked)
+                                }
                             }
                         }
                     }
@@ -159,16 +216,21 @@ private fun WidgetBody(snapshot: WidgetSnapshot?, mode: String, range: String?, 
 }
 
 @Composable
-private fun Header(s: WidgetSnapshot) {
+private fun Header(s: WidgetSnapshot, masked: Boolean, privacyOn: Boolean) {
     Row(
         modifier = GlanceModifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = GlanceModifier.defaultWeight()) {
+        // Sibling of the lock icon and the refresh button below, not their
+        // ancestor: opens the app when tapped, with no nested/overlapping
+        // clickable of its own inside it.
+        Column(
+            modifier = GlanceModifier.defaultWeight().clickable(actionStartActivity<SettingsActivity>()),
+        ) {
             Text("Portfolio", style = TextStyle(color = muted, fontSize = 12.sp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    Format.money(s.total, s.currency),
+                    if (masked) Format.MASK else Format.money(s.total, s.currency),
                     style = TextStyle(color = fg, fontSize = 20.sp, fontWeight = FontWeight.Bold),
                 )
                 s.portfolioPerformance?.let { p ->
@@ -184,6 +246,23 @@ private fun Header(s: WidgetSnapshot) {
                 }
             }
         }
+        // A single, always-present Text in this slot – conditionally
+        // including/excluding whole composables here (as opposed to just
+        // varying this one element's content/action) would shift Glance's
+        // view-id allocation for everything rendered after it, which is
+        // exactly the kind of instability that causes stale click targets
+        // elsewhere in the widget (see positionItemId doc above). Empty
+        // string + no click when privacy mode is off entirely. While
+        // revealed, "🔓" is informational only – no manual re-hide tap
+        // target; amounts always auto re-mask on their own after the
+        // configured reveal duration (see UnlockPrivacyActivity), which
+        // trades the ability to hide early for one fewer click target in a
+        // widget that has repeatedly had trouble with tap routing.
+        val lockGlyph = if (masked) "🔒" else if (privacyOn) "🔓" else ""
+        val lockModifier = GlanceModifier.padding(horizontal = 8.dp, vertical = 2.dp).let {
+            if (masked) it.clickable(actionRunCallback<RequestUnlockAction>()) else it
+        }
+        Text(lockGlyph, modifier = lockModifier, style = TextStyle(fontSize = 22.sp))
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 (if (s.stale) "⚠ " else "") + Format.timeLabel(s.updatedAtEpochMs),
@@ -248,14 +327,19 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun PositionRow(pos: WidgetPosition, currency: String) {
+private fun PositionRow(pos: WidgetPosition, currency: String, masked: Boolean) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
             .padding(vertical = 3.dp)
             .background(card)
             .cornerRadius(10.dp)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .clickable(
+                actionRunCallback<OpenPositionAction>(
+                    actionParametersOf(WidgetKeys.SYMBOL_EXTRA to pos.symbol)
+                )
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = GlanceModifier.defaultWeight()) {
@@ -273,7 +357,7 @@ private fun PositionRow(pos: WidgetPosition, currency: String) {
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                Format.money(pos.value, currency),
+                if (masked) Format.MASK else Format.money(pos.value, currency),
                 style = TextStyle(color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold),
             )
             pos.performance?.let { p ->
@@ -288,8 +372,10 @@ private fun PositionRow(pos: WidgetPosition, currency: String) {
 
 @Composable
 private fun CenterMessage(text: String) {
+    // No competing clickable children in this state, so the whole area can
+    // safely open the app.
     Column(
-        modifier = GlanceModifier.fillMaxSize(),
+        modifier = GlanceModifier.fillMaxSize().clickable(actionStartActivity<SettingsActivity>()),
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

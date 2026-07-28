@@ -1,0 +1,6 @@
+* Fixed the widget's privacy lock icon for real this time: the whole widget
+  background was a single "open app" click target with the lock icon,
+  refresh button and range chips nested inside it – Glance/RemoteViews
+  doesn't reliably resolve taps in that arrangement. The "open app" click now
+  only sits on the total-value area, as a sibling of the other buttons
+  instead of their container, so taps can no longer be misrouted

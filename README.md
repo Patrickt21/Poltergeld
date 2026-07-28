@@ -30,6 +30,12 @@ Ghostfolio server you configure.
   performance / name), asset-class filter and a detail page per position
   (Android widgets cannot host text input, so search lives in the app — one
   tap away from the widget).
+- Tap a position — in the widget or the app — to open its detail page: a
+  price-history chart plus the full buy/sell/dividend activity log for that
+  holding.
+- Optional **Privacy Mode**: hide monetary amounts by default in the widget
+  and/or the app (two independent switches), revealed again with fingerprint
+  or device PIN.
 - Security token encrypted at rest via the Android Keystore; optional app lock
   (fingerprint / device PIN) that re-locks when the app leaves the foreground
   and, while enabled, blanks the recents preview and blocks screenshots.
@@ -127,10 +133,17 @@ android.aapt2FromMavenOverride=/path/to/build-tools/34.0.0/aapt2
 
 ## API
 
-The client performs two Ghostfolio REST calls:
+The client talks to these Ghostfolio REST endpoints (all with
+`Authorization: Bearer <token>` except the auth call itself):
 
 1. `POST /api/v1/auth/anonymous` with `{"accessToken": "<token>"}` → bearer token.
-2. `GET /api/v1/portfolio/holdings` with `Authorization: Bearer <token>`.
+2. `GET /api/v1/portfolio/holdings` — the position list shown in the widget and overview.
+3. `GET /api/v1/user` — base currency (cached, rarely changes).
+4. `GET /api/v1/portfolio/performance` — overall portfolio performance for the selected range.
+5. `GET /api/v1/portfolio/holding/{dataSource}/{symbol}` — price history and
+   exact figures for a single position's detail page.
+6. `GET /api/v1/activities?symbol=&dataSource=` — buy/sell/dividend/fee history
+   for a single position's detail page.
 
 ## Support
 

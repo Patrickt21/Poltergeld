@@ -1,0 +1,4 @@
+* Fixed: unlocking Privacy Mode from the widget briefly looked like the app
+  was opening instead of just revealing the amounts
+* Settings screen: added an explicit "Save" button that confirms all current
+  switches/options at once

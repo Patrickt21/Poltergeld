@@ -25,6 +25,16 @@ sealed interface PortfolioResult {
     data class Error(val message: String, val transient: Boolean = false) : PortfolioResult
 }
 
+sealed interface HoldingDetailResult {
+    data class Success(val detail: HoldingDetailResponse) : HoldingDetailResult
+    data class Error(val message: String) : HoldingDetailResult
+}
+
+sealed interface ActivitiesResult {
+    data class Success(val activities: List<Activity>) : ActivitiesResult
+    data class Error(val message: String) : ActivitiesResult
+}
+
 /** The request never reached Ghostfolio – an auth proxy answered instead. */
 private class ProxyBlockedException : Exception(
     tr(
@@ -38,6 +48,11 @@ private class ProxyBlockedException : Exception(
 /** Non-2xx answer from the server itself (JSON, so not a proxy). */
 private class HttpStatusException(val code: Int) : Exception(
     tr("Server error (HTTP $code)", "Serverfehler (HTTP $code)")
+)
+
+/** No usable bearer token: authentication never succeeded (bad/expired token). */
+private class AuthFailedException : Exception(
+    tr("Authentication failed – check token", "Anmeldung fehlgeschlagen – Token prüfen")
 )
 
 /**
@@ -145,6 +160,72 @@ object GhostfolioClient {
             PortfolioResult.Error(e.message ?: tr("Unknown error", "Unbekannter Fehler"))
         }
     }
+
+    /**
+     * Detail data for a single position (price history, average price, exact
+     * performance) – fetched on demand when the user opens a position, not
+     * part of the regular portfolio snapshot.
+     */
+    suspend fun fetchHoldingDetail(
+        context: Context,
+        settings: Settings,
+        dataSource: String,
+        symbol: String,
+    ): HoldingDetailResult = withContext(Dispatchers.IO) {
+        try {
+            val path = "${settings.baseUrl}/api/v1/portfolio/holding/" +
+                "${encode(dataSource)}/${encode(symbol)}"
+            HoldingDetailResult.Success(
+                json.decodeFromString<HoldingDetailResponse>(authenticatedGet(context, settings, path))
+            )
+        } catch (e: Exception) {
+            HoldingDetailResult.Error(e.message ?: tr("Unknown error", "Unbekannter Fehler"))
+        }
+    }
+
+    /** Buy/sell/dividend/fee history for a single position, newest first per the API's default order. */
+    suspend fun fetchActivities(
+        context: Context,
+        settings: Settings,
+        dataSource: String,
+        symbol: String,
+    ): ActivitiesResult = withContext(Dispatchers.IO) {
+        try {
+            val path = "${settings.baseUrl}/api/v1/activities?symbol=${encode(symbol)}" +
+                "&dataSource=${encode(dataSource)}"
+            val parsed = json.decodeFromString<ActivitiesResponse>(authenticatedGet(context, settings, path))
+            ActivitiesResult.Success(parsed.activities)
+        } catch (e: Exception) {
+            ActivitiesResult.Error(e.message ?: tr("Unknown error", "Unbekannter Fehler"))
+        }
+    }
+
+    /**
+     * GET with the same cached-bearer / retry-once-on-401 dance as
+     * [fetchPortfolio]'s holdings call, factored out so the position-detail
+     * calls don't fail outright on a merely expired cached token.
+     */
+    private suspend fun authenticatedGet(context: Context, settings: Settings, path: String): String {
+        var freshAuth = false
+        var bearer = SettingsRepository.getCachedBearer(context)
+        if (bearer == null) {
+            bearer = authenticate(settings)
+                ?: throw AuthFailedException()
+            freshAuth = true
+            SettingsRepository.saveCachedBearer(context, bearer)
+        }
+        return try {
+            get(path, bearer)
+        } catch (e: HttpStatusException) {
+            if (e.code !in setOf(401, 403) || freshAuth) throw e
+            val fresh = authenticate(settings) ?: throw AuthFailedException()
+            SettingsRepository.saveCachedBearer(context, fresh)
+            get(path, fresh)
+        }
+    }
+
+    private fun encode(value: String): String =
+        java.net.URLEncoder.encode(value, "UTF-8")
 
     private fun authenticate(settings: Settings): String? {
         val payload = json.encodeToString(

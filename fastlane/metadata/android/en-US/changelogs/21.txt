@@ -1,0 +1,11 @@
+* Fixed: unlocking the widget's privacy mode sometimes appeared to do
+  nothing – amounts stayed masked even after successful authentication.
+  The widget froze its masked/unmasked decision for as long as its render
+  session stayed alive, so an unlock only took effect once that session
+  had timed out. The mask state is now observed live from inside the
+  widget and reacts to every change immediately
+* Fixed the mirror image of the same bug: amounts could stay *visible*
+  past the configured reveal duration when the auto re-mask hit a still
+  live render session
+* Fixed a race where unlocking right as a previous reveal window expired
+  could re-mask the amounts again immediately after authentication

@@ -1,0 +1,7 @@
+* Fixed unreliable widget unlock/hide: the previous version deferred the
+  actual unlock to a background job that Android doesn't guarantee runs
+  promptly (battery optimization can delay it by seconds or more), so the
+  widget often kept showing "locked" well after you'd already authenticated,
+  making repeated taps behave inconsistently. The unlock now completes
+  before the invisible prompt screen closes, so the widget reliably shows
+  the correct state right away

@@ -1,0 +1,4 @@
+* Privacy Mode: the lock icon now also lets you hide revealed amounts again
+  immediately, in the widget and in the app, instead of only waiting for the
+  reveal window to expire
+* The lock icon is bigger and easier to tap

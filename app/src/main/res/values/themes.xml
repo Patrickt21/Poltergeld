@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.GhostfolioWidget" parent="android:Theme.Material.NoActionBar" />
+
+    <!-- UnlockPrivacyActivity: invisible host for the biometric prompt, never
+         shows any UI of its own. Built on Android's own trampoline-activity
+         theme (battle-tested across OEM launchers) rather than a bespoke
+         translucent style, with window animations explicitly nulled out so
+         opening/closing it doesn't read as "the app launching". -->
+    <style name="Theme.Poltergeld.Transparent" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
 </resources>

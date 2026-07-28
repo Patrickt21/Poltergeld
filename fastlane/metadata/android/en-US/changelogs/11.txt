@@ -1,0 +1,4 @@
+* Tap a position (in the widget or the app) to open its detail page: price
+  history chart plus the full buy/sell/dividend activity log
+* Optional Privacy Mode: hide amounts in the widget and/or the app, revealed
+  again with fingerprint or device PIN — the two are independent switches

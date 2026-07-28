@@ -1,0 +1,6 @@
+* Fixed the widget's privacy lock icon: tapping it to unlock could open the
+  app's settings instead of the fingerprint/PIN prompt, and tapping it again
+  sometimes did nothing. Every tap inside the widget (positions, lock icon,
+  refresh, range) now goes through the same, already-reliable action
+  mechanism instead of mixing two different ones that could get confused
+  with each other

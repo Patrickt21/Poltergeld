@@ -64,6 +64,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import app.poltergeld.Format
 import app.poltergeld.L10n
 import app.poltergeld.data.GhostfolioClient
+import app.poltergeld.data.SUPPORTED_PRIVACY_REVEAL_SECONDS
 import app.poltergeld.data.SUPPORTED_REFRESH_MINUTES
 import app.poltergeld.data.Holding
 import app.poltergeld.data.PortfolioResult
@@ -75,6 +76,9 @@ import app.poltergeld.widget.WidgetConfigActivity
 import app.poltergeld.widget.WidgetKeys
 import app.poltergeld.widget.WidgetScheduler
 import app.poltergeld.widget.widgetModeLabel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -84,21 +88,36 @@ private val red = Color(0xFFF87171)
 private fun rangeChips() = listOf("1d" to "24h", "wtd" to "1W", "mtd" to "1M", "1y" to tr("1Y", "1J"))
 
 // FragmentActivity (not ComponentActivity) so BiometricPrompt can attach.
+// singleTask (see manifest) so a second widget tap while the app is already
+// open reuses this instance via onNewIntent instead of stacking a duplicate.
 class SettingsActivity : FragmentActivity() {
+    private val openSymbol = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openSymbol.value = intent?.getStringExtra(WidgetKeys.SYMBOL_EXTRA_KEY)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Scaffold { pad ->
-                    AppRoot(Modifier.padding(pad), activity = this)
+                    AppRoot(Modifier.padding(pad), activity = this, initialSymbol = openSymbol)
                 }
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openSymbol.value = intent.getStringExtra(WidgetKeys.SYMBOL_EXTRA_KEY)
+    }
 }
 
 @Composable
-private fun AppRoot(modifier: Modifier = Modifier, activity: FragmentActivity) {
+private fun AppRoot(
+    modifier: Modifier = Modifier,
+    activity: FragmentActivity,
+    initialSymbol: androidx.compose.runtime.State<String?>,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var settings by remember { mutableStateOf<Settings?>(null) }
@@ -106,6 +125,9 @@ private fun AppRoot(modifier: Modifier = Modifier, activity: FragmentActivity) {
     var onboarding by remember { mutableStateOf(false) }
     var locked by remember { mutableStateOf(false) }
     var promptActive by remember { mutableStateOf(false) }
+    // Privacy mode's reveal state: in-memory only (no timer, unlike the
+    // widget) – leaving the app re-masks it via the lifecycle observer below.
+    var privacyRevealed by remember { mutableStateOf(false) }
 
     fun unlock() {
         if (promptActive) return
@@ -114,6 +136,20 @@ private fun AppRoot(modifier: Modifier = Modifier, activity: FragmentActivity) {
             promptActive = false
             if (ok) locked = false
         }
+    }
+
+    fun revealPrivacy() {
+        if (promptActive) return
+        promptActive = true
+        AppLock.prompt(activity) { ok ->
+            promptActive = false
+            if (ok) privacyRevealed = true
+        }
+    }
+
+    // Hiding again needs no authentication – only revealing does.
+    fun hidePrivacy() {
+        privacyRevealed = false
     }
 
     LaunchedEffect(Unit) {
@@ -127,10 +163,13 @@ private fun AppRoot(modifier: Modifier = Modifier, activity: FragmentActivity) {
         }
     }
 
-    // While the lock is enabled, blank the recents preview and block
-    // screenshots so portfolio numbers never leak off this screen.
-    LaunchedEffect(settings?.requireUnlock) {
-        if (settings?.requireUnlock == true) {
+    // Blank the recents preview and block screenshots so portfolio numbers
+    // never leak off this screen — while the app lock is enabled, but also
+    // while Privacy Mode (app) is on: once revealed, the very amounts it
+    // hides would otherwise be screenshot- or recents-thumbnail-able.
+    val screenNeedsSecureFlag = settings?.requireUnlock == true || settings?.privacyModeApp == true
+    LaunchedEffect(screenNeedsSecureFlag) {
+        if (screenNeedsSecureFlag) {
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -143,6 +182,7 @@ private fun AppRoot(modifier: Modifier = Modifier, activity: FragmentActivity) {
     val appLifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(appLifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && !promptActive) privacyRevealed = false
             if (settings?.requireUnlock != true || promptActive) return@LifecycleEventObserver
             when (event) {
                 Lifecycle.Event.ON_STOP -> locked = true
@@ -187,7 +227,15 @@ private fun AppRoot(modifier: Modifier = Modifier, activity: FragmentActivity) {
             },
         )
     } else {
-        OverviewScreen(modifier, settings = s, onOpenSettings = { showSettings = true })
+        OverviewScreen(
+            modifier,
+            settings = s,
+            onOpenSettings = { showSettings = true },
+            initialSymbol = initialSymbol.value,
+            masked = s.privacyModeApp && !privacyRevealed,
+            onRevealPrivacy = ::revealPrivacy,
+            onHidePrivacy = ::hidePrivacy,
+        )
     }
 }
 
@@ -213,6 +261,10 @@ private fun OverviewScreen(
     modifier: Modifier = Modifier,
     settings: Settings,
     onOpenSettings: () -> Unit,
+    initialSymbol: String? = null,
+    masked: Boolean = false,
+    onRevealPrivacy: () -> Unit = {},
+    onHidePrivacy: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -231,13 +283,32 @@ private fun OverviewScreen(
         result = GhostfolioClient.fetchPortfolio(context, settings.copy(range = range))
     }
 
+    // Widget deep link: jump straight to the tapped position once its data
+    // has loaded. initialSymbol itself never clears (it lives in the hosting
+    // Activity so a second widget tap can reach it via onNewIntent), so this
+    // tracks which symbol was already handled – otherwise every later
+    // Refresh tap or range change (which produces a new `result` instance)
+    // would re-fire the effect and yank the user back into the detail screen
+    // even after they'd pressed Back.
+    var handledSymbol by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(result, initialSymbol) {
+        val symbol = initialSymbol ?: return@LaunchedEffect
+        if (symbol == handledSymbol) return@LaunchedEffect
+        val r = result as? PortfolioResult.Success ?: return@LaunchedEffect
+        handledSymbol = symbol
+        r.holdings.find { it.assetProfile?.symbol == symbol || it.symbol == symbol }
+            ?.let { selected = it }
+    }
+
     val current = selected
     if (current != null) {
         BackHandler { selected = null }
         DetailScreen(
             modifier,
+            settings = settings,
             holding = current,
             baseCurrency = (result as? PortfolioResult.Success)?.baseCurrency.orEmpty(),
+            masked = masked,
             onBack = { selected = null },
         )
         return
@@ -257,7 +328,7 @@ private fun OverviewScreen(
                 (result as? PortfolioResult.Success)?.let { r ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            formatMoney(r.total, r.baseCurrency),
+                            if (masked) Format.MASK else formatMoney(r.total, r.baseCurrency),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         r.portfolioPerformance?.let { p ->
@@ -268,6 +339,17 @@ private fun OverviewScreen(
                             )
                         }
                     }
+                }
+            }
+            if (masked) {
+                TextButton(onClick = onRevealPrivacy) {
+                    Text("🔒", style = MaterialTheme.typography.headlineSmall)
+                }
+            } else if (settings.privacyModeApp) {
+                // Revealed while privacy mode stays on: offer to hide again
+                // immediately, no authentication needed for that direction.
+                TextButton(onClick = onHidePrivacy) {
+                    Text("🔓", style = MaterialTheme.typography.headlineSmall)
                 }
             }
             TextButton(onClick = { reload++ }) { Text(tr("Refresh", "Aktualisieren")) }
@@ -363,7 +445,7 @@ private fun OverviewScreen(
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(filtered) { h ->
                         Box(Modifier.clickable { selected = h }) {
-                            HoldingRow(h, r.baseCurrency)
+                            HoldingRow(h, r.baseCurrency, masked)
                         }
                     }
                 }
@@ -375,10 +457,56 @@ private fun OverviewScreen(
 @Composable
 private fun DetailScreen(
     modifier: Modifier = Modifier,
+    settings: Settings,
     holding: Holding,
     baseCurrency: String,
+    masked: Boolean = false,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val dataSource = holding.assetProfile?.dataSource
+    val symbol = holding.assetProfile?.symbol ?: holding.symbol
+
+    var loadingDetail by remember { mutableStateOf(true) }
+    var detail by remember { mutableStateOf<app.poltergeld.data.HoldingDetailResponse?>(null) }
+    var activities by remember { mutableStateOf<List<app.poltergeld.data.Activity>>(emptyList()) }
+    var chartError by remember { mutableStateOf<String?>(null) }
+    var activitiesError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(holding) {
+        loadingDetail = true
+        detail = null
+        activities = emptyList()
+        chartError = null
+        activitiesError = null
+        if (dataSource != null && symbol != null) {
+            coroutineScope {
+                val detailDeferred = async {
+                    GhostfolioClient.fetchHoldingDetail(context, settings, dataSource, symbol)
+                }
+                val activitiesDeferred = async {
+                    GhostfolioClient.fetchActivities(context, settings, dataSource, symbol)
+                }
+                when (val d = detailDeferred.await()) {
+                    is app.poltergeld.data.HoldingDetailResult.Success -> detail = d.detail
+                    is app.poltergeld.data.HoldingDetailResult.Error -> chartError = d.message
+                }
+                when (val a = activitiesDeferred.await()) {
+                    is app.poltergeld.data.ActivitiesResult.Success -> activities = a.activities
+                    is app.poltergeld.data.ActivitiesResult.Error -> activitiesError = a.message
+                }
+            }
+        } else {
+            val noDataSource = tr(
+                "No data source for this position.",
+                "Keine Datenquelle für diese Position.",
+            )
+            chartError = noDataSource
+            activitiesError = noDataSource
+        }
+        loadingDetail = false
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -392,7 +520,7 @@ private fun DetailScreen(
         Text(holding.displayName, style = MaterialTheme.typography.headlineSmall)
         holding.assetProfile?.symbol?.let { DetailRow("Symbol", it) }
         holding.assetProfile?.assetClass?.let { DetailRow(tr("Asset class", "Anlageklasse"), prettyClass(it)) }
-        DetailRow(tr("Value", "Wert"), formatMoney(holding.displayValue, baseCurrency))
+        DetailRow(tr("Value", "Wert"), if (masked) Format.MASK else formatMoney(holding.displayValue, baseCurrency))
         holding.performance?.let { p ->
             DetailRow("Performance", signedPercent(p), if (p >= 0) green else red)
         }
@@ -403,13 +531,122 @@ private fun DetailScreen(
             DetailRow(tr("Quantity", "Stückzahl"), String.format(L10n.numberLocale(), "%,.4f", it))
         }
         holding.marketPrice?.let {
-            DetailRow(tr("Market price", "Marktpreis"), formatMoney(it, holding.assetProfile?.currency.orEmpty()))
+            DetailRow(
+                tr("Market price", "Marktpreis"),
+                if (masked) Format.MASK else formatMoney(it, holding.assetProfile?.currency.orEmpty()),
+            )
         }
-        holding.investment?.let { DetailRow(tr("Investment", "Investiert"), formatMoney(it, baseCurrency)) }
+        holding.investment?.let {
+            DetailRow(tr("Investment", "Investiert"), if (masked) Format.MASK else formatMoney(it, baseCurrency))
+        }
         holding.dividend?.takeIf { it != 0.0 }?.let {
-            DetailRow(tr("Dividend", "Dividende"), formatMoney(it, baseCurrency))
+            DetailRow(tr("Dividend", "Dividende"), if (masked) Format.MASK else formatMoney(it, baseCurrency))
+        }
+        detail?.averagePrice?.let {
+            DetailRow(
+                tr("Average price", "Durchschnittspreis"),
+                if (masked) Format.MASK else formatMoney(it, holding.assetProfile?.currency.orEmpty()),
+            )
+        }
+
+        if (loadingDetail) {
+            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            val chartValues = detail?.historicalData?.mapNotNull { it.chartValue }.orEmpty()
+            if (!masked) {
+                Spacer(Modifier.height(4.dp))
+                Text(tr("Price history", "Kursverlauf"), style = MaterialTheme.typography.titleMedium)
+                if (chartError != null) {
+                    Text(tr("Error: ", "Fehler: ") + chartError, color = red, style = MaterialTheme.typography.bodySmall)
+                } else {
+                    // PriceChart shows its own "not enough history yet" message
+                    // for < 2 points – gating on that here too would silently
+                    // render nothing instead, hiding whether data ever arrived.
+                    PriceChart(chartValues, holding.assetProfile?.currency ?: baseCurrency)
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+            Text(tr("Activity history", "Kauf-/Verkaufshistorie"), style = MaterialTheme.typography.titleMedium)
+            if (activitiesError != null) {
+                Text(
+                    tr("Error: ", "Fehler: ") + activitiesError,
+                    color = red,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else if (activities.isEmpty()) {
+                Text(
+                    tr("No activities found.", "Keine Aktivitäten gefunden."),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                activities.sortedByDescending { it.date }.forEach { a ->
+                    ActivityRow(a, holding.assetProfile?.currency ?: baseCurrency, masked)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun ActivityRow(activity: app.poltergeld.data.Activity, currency: String, masked: Boolean = false) {
+    val typeColor = when (activity.type) {
+        "BUY" -> green
+        "SELL" -> red
+        else -> Color.Unspecified
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(activityTypeLabel(activity.type), color = typeColor, style = MaterialTheme.typography.bodyMedium)
+            Text(formatActivityDate(activity.date), style = MaterialTheme.typography.bodySmall)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            val qty = activity.quantity
+            val price = activity.unitPrice
+            if (qty != null && price != null) {
+                Text(
+                    if (masked) {
+                        Format.MASK
+                    } else {
+                        String.format(L10n.numberLocale(), "%,.4f", qty) + " × " + formatMoney(price, currency)
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (!masked) {
+                activity.fee?.takeIf { it > 0.0 }?.let {
+                    Text(
+                        tr("Fee ", "Gebühr ") + formatMoney(it, currency),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun activityTypeLabel(type: String?): String = when (type) {
+    "BUY" -> tr("Buy", "Kauf")
+    "SELL" -> tr("Sell", "Verkauf")
+    "DIVIDEND" -> tr("Dividend", "Dividende")
+    "FEE" -> tr("Fee", "Gebühr")
+    "INTEREST" -> tr("Interest", "Zinsen")
+    "LIABILITY" -> tr("Liability", "Verbindlichkeit")
+    else -> type ?: "?"
+}
+
+/** Ghostfolio sends activity dates as ISO-8601; a plain "d.M.yyyy" is all this screen needs. */
+private fun formatActivityDate(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    val pattern = java.time.format.DateTimeFormatter.ofPattern("d.M.yyyy")
+    return runCatching { java.time.OffsetDateTime.parse(iso).toLocalDate().format(pattern) }
+        .recoverCatching { java.time.LocalDate.parse(iso.take(10)).format(pattern) }
+        .getOrDefault(iso.take(10))
 }
 
 @Composable
@@ -439,7 +676,7 @@ private fun prettyClass(raw: String): String =
         .replaceFirstChar { it.titlecase(Locale.getDefault()) }
 
 @Composable
-private fun HoldingRow(h: Holding, currency: String) {
+private fun HoldingRow(h: Holding, currency: String, masked: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -454,7 +691,10 @@ private fun HoldingRow(h: Holding, currency: String) {
             }
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(formatMoney(h.displayValue, currency), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                if (masked) Format.MASK else formatMoney(h.displayValue, currency),
+                style = MaterialTheme.typography.bodyLarge,
+            )
             h.performance?.let { p ->
                 Text(
                     signedPercent(p),
@@ -481,8 +721,31 @@ private fun SettingsScreen(
     var token by remember { mutableStateOf(initial.token) }
     var refreshMinutes by remember { mutableIntStateOf(initial.refreshMinutes) }
     var requireUnlock by remember { mutableStateOf(initial.requireUnlock) }
+    var privacyModeWidget by remember { mutableStateOf(initial.privacyModeWidget) }
+    var privacyModeApp by remember { mutableStateOf(initial.privacyModeApp) }
+    var privacyRevealSeconds by remember { mutableIntStateOf(initial.privacyRevealSeconds) }
     var connectionStatus by remember { mutableStateOf("") }
     var lockStatus by remember { mutableStateOf("") }
+    var privacyStatus by remember { mutableStateOf("") }
+    var saveConfirmation by remember { mutableStateOf(false) }
+
+    // Every switch/chip on this screen already persists itself the moment it
+    // changes; this button re-confirms all of them at once (deliberately
+    // excluding the URL/token fields, which stay gated behind "Test & save"
+    // so a broken server address can never get saved silently) and shows a
+    // brief checkmark so the user has an explicit "it's saved" moment.
+    fun saveAll() {
+        scope.launch {
+            SettingsRepository.saveRefreshMinutes(context, refreshMinutes)
+            SettingsRepository.saveRequireUnlock(context, requireUnlock)
+            SettingsRepository.savePrivacyModeWidget(context, privacyModeWidget)
+            SettingsRepository.savePrivacyModeApp(context, privacyModeApp)
+            SettingsRepository.savePrivacyRevealSeconds(context, privacyRevealSeconds)
+            saveConfirmation = true
+            delay(2000)
+            saveConfirmation = false
+        }
+    }
 
     // Homescreen widget instances (id, mode, custom count), reloaded whenever
     // the screen resumes so the list reflects config changes made in
@@ -535,6 +798,11 @@ private fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
+            Text(
+                if (saveConfirmation) tr("✓ Saved", "✓ Gespeichert") else "",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            TextButton(onClick = { saveAll() }) { Text(tr("Save", "Speichern")) }
             TextButton(onClick = { close() }) { Text(tr("Done", "Fertig")) }
         }
 
@@ -708,6 +976,117 @@ private fun SettingsScreen(
             }
             if (lockStatus.isNotBlank()) {
                 Text(lockStatus, style = MaterialTheme.typography.bodySmall)
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(tr("Privacy mode (widget)", "Privacy Mode (Widget)"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr(
+                            "Hide amounts in the homescreen widget by default; reveal " +
+                                "them briefly with fingerprint or device PIN.",
+                            "Beträge im Homescreen-Widget standardmäßig ausblenden; " +
+                                "kurzzeitig mit Fingerabdruck oder Geräte-PIN einblenden.",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = privacyModeWidget,
+                    onCheckedChange = { checked ->
+                        if (checked && !AppLock.available(context)) {
+                            privacyStatus = tr(
+                                "No screen lock set up on this device – " +
+                                    "add a PIN or fingerprint in the system settings first.",
+                                "Auf diesem Gerät ist keine Displaysperre eingerichtet – " +
+                                    "lege zuerst PIN oder Fingerabdruck in den " +
+                                    "Systemeinstellungen an.",
+                            )
+                        } else {
+                            privacyModeWidget = checked
+                            privacyStatus = ""
+                            scope.launch {
+                                SettingsRepository.savePrivacyModeWidget(context, checked)
+                                if (!checked) SettingsRepository.savePrivacyUnlockedUntil(context, 0L)
+                                WidgetScheduler.refreshNow(context)
+                            }
+                        }
+                    },
+                )
+            }
+
+            if (privacyModeWidget) {
+                Text(
+                    tr(
+                        "How long revealed amounts stay visible in the widget " +
+                            "before auto-hiding again.",
+                        "Wie lange eingeblendete Beträge im Widget sichtbar " +
+                            "bleiben, bevor sie automatisch wieder ausgeblendet werden.",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    SUPPORTED_PRIVACY_REVEAL_SECONDS.forEach { seconds ->
+                        FilterChip(
+                            selected = seconds == privacyRevealSeconds,
+                            onClick = {
+                                privacyRevealSeconds = seconds
+                                scope.launch {
+                                    SettingsRepository.savePrivacyRevealSeconds(context, seconds)
+                                }
+                            },
+                            label = { Text(revealDurationLabel(seconds)) },
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(tr("Privacy mode (app)", "Privacy Mode (App)"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr(
+                            "Hide amounts in the app by default; reveal them with " +
+                                "fingerprint or device PIN until the app leaves the foreground.",
+                            "Beträge in der App standardmäßig ausblenden; mit " +
+                                "Fingerabdruck oder Geräte-PIN einblenden, bis die App in " +
+                                "den Hintergrund geht.",
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = privacyModeApp,
+                    onCheckedChange = { checked ->
+                        if (checked && !AppLock.available(context)) {
+                            privacyStatus = tr(
+                                "No screen lock set up on this device – " +
+                                    "add a PIN or fingerprint in the system settings first.",
+                                "Auf diesem Gerät ist keine Displaysperre eingerichtet – " +
+                                    "lege zuerst PIN oder Fingerabdruck in den " +
+                                    "Systemeinstellungen an.",
+                            )
+                        } else {
+                            privacyModeApp = checked
+                            privacyStatus = ""
+                            scope.launch { SettingsRepository.savePrivacyModeApp(context, checked) }
+                        }
+                    },
+                )
+            }
+            if (privacyStatus.isNotBlank()) {
+                Text(privacyStatus, style = MaterialTheme.typography.bodySmall)
             }
         }
 
@@ -885,6 +1264,9 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
 
 private fun intervalLabel(minutes: Int): String =
     if (minutes < 60) "$minutes min" else "${minutes / 60} h"
+
+private fun revealDurationLabel(seconds: Int): String =
+    if (seconds < 60) "$seconds s" else "${seconds / 60} min"
 
 private fun signedPercent(fraction: Double): String = Format.signedPercent(fraction)
 

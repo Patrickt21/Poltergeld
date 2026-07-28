@@ -34,6 +34,7 @@ data class AssetProfile(
     val symbol: String? = null,
     val currency: String? = null,
     val assetClass: String? = null,
+    val dataSource: String? = null,
 )
 
 /** GET /api/v1/portfolio/performance – overall portfolio performance for a range. */
@@ -93,6 +94,65 @@ data class Holding(
     val displayValue: Double get() = valueInBaseCurrency ?: value ?: 0.0
     val performance: Double? get() = netPerformancePercentWithCurrencyEffect ?: netPerformancePercent
 }
+
+/**
+ * One point of a position's price history, as returned inside
+ * GET /api/v1/portfolio/holding/{dataSource}/{symbol}.
+ */
+@Serializable
+data class HistoricalDataItem(
+    val date: String,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val marketPrice: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val value: Double? = null,
+) {
+    /** What the chart plots: the traded price, or the holding's value if unavailable (e.g. cash). */
+    val chartValue: Double? get() = marketPrice ?: value
+}
+
+/** GET /api/v1/portfolio/holding/{dataSource}/{symbol} – single-position detail incl. price history. */
+@Serializable
+data class HoldingDetailResponse(
+    @Serializable(with = LenientDoubleSerializer::class)
+    val averagePrice: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val marketPrice: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val quantity: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val value: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val netPerformance: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val netPerformancePercent: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val netPerformancePercentWithCurrencyEffect: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val dividendInBaseCurrency: Double? = null,
+    val historicalData: List<HistoricalDataItem> = emptyList(),
+)
+
+/** One buy/sell/dividend/fee entry, as returned by GET /api/v1/activities. */
+@Serializable
+data class Activity(
+    val id: String? = null,
+    val type: String? = null,
+    val date: String? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val quantity: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val unitPrice: Double? = null,
+    @Serializable(with = LenientDoubleSerializer::class)
+    val fee: Double? = null,
+    val currency: String? = null,
+)
+
+@Serializable
+data class ActivitiesResponse(
+    val activities: List<Activity> = emptyList(),
+    val count: Int = 0,
+)
 
 /** Accepts numbers encoded either as JSON numbers or JSON strings. */
 object LenientDoubleSerializer : kotlinx.serialization.KSerializer<Double?> {
