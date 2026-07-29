@@ -1,6 +1,8 @@
 # Poltergeld — homescreen widget for Ghostfolio
-<img width="712" height="1600" alt="image" src="https://github.com/user-attachments/assets/2c2cce89-91fc-49d5-95db-9f9e9b6c2807" />
-<img width="712" height="1600" alt="image" src="https://github.com/user-attachments/assets/3bf98fdd-ad13-4475-88d2-7138ec29d12d" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/2c2cce89-91fc-49d5-95db-9f9e9b6c2807" width="250" alt="Widget Screenshot 1">
+  <img src="https://github.com/user-attachments/assets/3bf98fdd-ad13-4475-88d2-7138ec29d12d" width="250" alt="Widget Screenshot 2">
+</p>
 
 A small, open-source Android homescreen **widget** that shows the positions from
 your self-hosted [Ghostfolio](https://github.com/ghostfolio/ghostfolio) instance.
