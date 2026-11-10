@@ -65,6 +65,7 @@ import app.poltergeld.Format
 import app.poltergeld.L10n
 import app.poltergeld.data.GhostfolioClient
 import app.poltergeld.data.SUPPORTED_PRIVACY_REVEAL_SECONDS
+import app.poltergeld.data.SUPPORTED_RANGES
 import app.poltergeld.data.SUPPORTED_REFRESH_MINUTES
 import app.poltergeld.data.Holding
 import app.poltergeld.data.PortfolioResult
@@ -85,7 +86,7 @@ import java.util.Locale
 private val green = Color(0xFF34D399)
 private val red = Color(0xFFF87171)
 
-private fun rangeChips() = listOf("1d" to "24h", "wtd" to "1W", "mtd" to "1M", "1y" to tr("1Y", "1J"))
+private fun rangeChips() = SUPPORTED_RANGES.map { it to Format.rangeLabel(it) }
 
 // FragmentActivity (not ComponentActivity) so BiometricPrompt can attach.
 // singleTask (see manifest) so a second widget tap while the app is already
@@ -592,9 +593,12 @@ private fun DetailScreen(
 
 @Composable
 private fun ActivityRow(activity: app.poltergeld.data.Activity, currency: String, masked: Boolean = false) {
-    val typeColor = when (activity.type) {
-        "BUY" -> green
-        "SELL" -> red
+    val typeColor = when {
+        // Drafts are planned, not executed – no buy/sell colour so they
+        // don't read as real trades at a glance.
+        activity.draft -> Color.Gray
+        activity.type == "BUY" -> green
+        activity.type == "SELL" -> red
         else -> Color.Unspecified
     }
     Row(
@@ -602,7 +606,12 @@ private fun ActivityRow(activity: app.poltergeld.data.Activity, currency: String
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(activityTypeLabel(activity.type), color = typeColor, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                activityTypeLabel(activity.type) +
+                    if (activity.draft) tr(" (draft)", " (Entwurf)") else "",
+                color = typeColor,
+                style = MaterialTheme.typography.bodyMedium,
+            )
             Text(formatActivityDate(activity.date), style = MaterialTheme.typography.bodySmall)
         }
         Column(horizontalAlignment = Alignment.End) {

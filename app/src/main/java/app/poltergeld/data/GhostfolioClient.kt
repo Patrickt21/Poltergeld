@@ -47,8 +47,15 @@ private class ProxyBlockedException : Exception(
 
 /** Non-2xx answer from the server itself (JSON, so not a proxy). */
 private class HttpStatusException(val code: Int) : Exception(
-    tr("Server error (HTTP $code)", "Serverfehler (HTTP $code)")
-)
+    if (code == 429) {
+        tr("Too many requests – retrying later", "Zu viele Anfragen – neuer Versuch später")
+    } else {
+        tr("Server error (HTTP $code)", "Serverfehler (HTTP $code)")
+    }
+) {
+    /** Rate limiting (429) and server-side failures (5xx) go away on their own. */
+    val transient: Boolean get() = code == 429 || code in 500..599
+}
 
 /** No usable bearer token: authentication never succeeded (bad/expired token). */
 private class AuthFailedException : Exception(
@@ -141,13 +148,13 @@ object GhostfolioClient {
             // Overall portfolio performance for the same range (fraction, ×100 for %).
             val portfolioPerformance = runCatching {
                 json.decodeFromString<PerformanceResponse>(
-                    get("${settings.baseUrl}/api/v1/portfolio/performance?range=${settings.range}", bearer)
+                    getPerformance(settings, bearer)
                 ).performance?.percent
             }.getOrNull()
 
             PortfolioResult.Success(holdings, total, baseCurrency, portfolioPerformance)
         } catch (e: HttpStatusException) {
-            PortfolioResult.Error(e.message!!, transient = e.code in 500..599)
+            PortfolioResult.Error(e.message!!, transient = e.transient)
         } catch (e: ProxyBlockedException) {
             PortfolioResult.Error(e.message!!)
         } catch (e: IOException) {
@@ -183,7 +190,10 @@ object GhostfolioClient {
         }
     }
 
-    /** Buy/sell/dividend/fee history for a single position, newest first per the API's default order. */
+    /**
+     * Buy/sell/dividend/fee history for a single position. The API sorts
+     * oldest first by default; the detail screen re-sorts newest first.
+     */
     suspend fun fetchActivities(
         context: Context,
         settings: Settings,
@@ -224,6 +234,10 @@ object GhostfolioClient {
         }
     }
 
+    /** Ghostfolio serves the overall performance only under /api/v2 (there is no v1 route since 2.0). */
+    private fun getPerformance(settings: Settings, bearer: String): String =
+        get("${settings.baseUrl}/api/v2/portfolio/performance?range=${settings.range}", bearer)
+
     private fun encode(value: String): String =
         java.net.URLEncoder.encode(value, "UTF-8")
 
@@ -237,8 +251,10 @@ object GhostfolioClient {
         val body = try {
             post("${settings.baseUrl}/api/v1/auth/anonymous", payload)
         } catch (e: HttpStatusException) {
-            // 4xx here means the token is wrong, which the caller reports.
-            if (e.code in 400..499) return null else throw e
+            // 4xx here means the token is wrong, which the caller reports –
+            // except 429: the login endpoint is rate limited, and that is
+            // worth retrying rather than blaming the token.
+            if (e.code in 400..499 && e.code != 429) return null else throw e
         }
         return json.decodeFromString<AuthResponse>(body).authToken
     }

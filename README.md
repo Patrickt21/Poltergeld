@@ -19,8 +19,9 @@ Ghostfolio server you configure.
 - Total portfolio value **and overall performance** in the widget header, with
   the last refresh time and a manual refresh button.
 - Switchable time horizon directly in the widget: 24h, week to date, month to
-  date, 1 year (the ranges the Ghostfolio API supports — there is no rolling
-  7d/30d).
+  date, year to date, 1 year and max (YTD and Max once the widget is wide
+  enough); the app additionally offers 5 years. These are the fixed ranges of
+  the Ghostfolio API — there is no rolling 7d/30d.
 - Responsive layouts: a small widget shows just the summary, larger ones add
   top/flop and the full list. Each widget instance can also be pinned to a
   fixed view via its configuration screen (long-press → reconfigure, or from
@@ -36,7 +37,7 @@ Ghostfolio server you configure.
   tap away from the widget).
 - Tap a position — in the widget or the app — to open its detail page: a
   price-history chart plus the full buy/sell/dividend activity log for that
-  holding.
+  holding (draft activities are marked as such).
 - Optional **Privacy Mode**: hide monetary amounts by default in the widget
   and/or the app (two independent switches), revealed again with fingerprint
   or device PIN.
@@ -86,7 +87,7 @@ URL in the app.
 
 ## Build
 
-Requirements: JDK 17 and the Android SDK (compileSdk 34, build-tools 34.0.0).
+Requirements: JDK 17 and the Android SDK (compileSdk 35).
 
 ```bash
 ./gradlew :app:assembleDebug     # debug APK
@@ -137,13 +138,13 @@ android.aapt2FromMavenOverride=/path/to/build-tools/34.0.0/aapt2
 
 ## API
 
-The client talks to these Ghostfolio REST endpoints (all with
+Tested against Ghostfolio 3.99. The client talks to these Ghostfolio REST endpoints (all with
 `Authorization: Bearer <token>` except the auth call itself):
 
 1. `POST /api/v1/auth/anonymous` with `{"accessToken": "<token>"}` → bearer token.
 2. `GET /api/v1/portfolio/holdings` — the position list shown in the widget and overview.
 3. `GET /api/v1/user` — base currency (cached, rarely changes).
-4. `GET /api/v1/portfolio/performance` — overall portfolio performance for the selected range.
+4. `GET /api/v2/portfolio/performance` — overall portfolio performance for the selected range.
 5. `GET /api/v1/portfolio/holding/{dataSource}/{symbol}` — price history and
    exact figures for a single position's detail page.
 6. `GET /api/v1/activities?symbol=&dataSource=` — buy/sell/dividend/fee history

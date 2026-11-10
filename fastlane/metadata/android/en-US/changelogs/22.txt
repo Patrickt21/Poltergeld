@@ -1,0 +1,9 @@
+* Fixed: the overall portfolio performance in the widget header never
+  showed up. It was requested from an endpoint (v1) that current
+  Ghostfolio versions no longer provide; it now uses /api/v2
+* New time ranges: year to date, 5 years and max – in the app, and YTD /
+  Max in the widget when it is wide enough
+* Draft activities are now marked as such in a position's activity log
+  instead of looking like executed trades
+* Ghostfolio's login rate limit (HTTP 429) no longer shows up as
+  "check token"; the refresh is simply retried later

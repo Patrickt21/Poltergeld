@@ -13,8 +13,12 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
-/** Time horizons supported by the Ghostfolio API (no rolling 7d/30d exists). */
-val SUPPORTED_RANGES = listOf("1d", "wtd", "mtd", "1y")
+/**
+ * Time horizons offered in the app – all fixed ranges of the Ghostfolio API
+ * (there is no rolling 7d/30d). The API also takes single years ("2024"),
+ * which aren't offered.
+ */
+val SUPPORTED_RANGES = listOf("1d", "wtd", "mtd", "ytd", "1y", "5y", "max")
 const val DEFAULT_RANGE = "1d"
 
 /** Selectable widget refresh intervals in minutes (15 is WorkManager's floor). */

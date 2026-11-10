@@ -27,6 +27,18 @@ object Format {
     fun signedPercent(fraction: Double, locale: Locale = L10n.numberLocale()): String =
         (if (fraction >= 0) "+" else "") + percent(fraction * 100, locale)
 
+    /** Chip label for a Ghostfolio range key ("1d" → "24h", "1y" → "1Y"/"1J"). */
+    fun rangeLabel(range: String): String = when (range) {
+        "1d" -> "24h"
+        "wtd" -> tr("1W", "1W")
+        "mtd" -> tr("1M", "1M")
+        "ytd" -> "YTD"
+        "1y" -> tr("1Y", "1J")
+        "5y" -> tr("5Y", "5J")
+        "max" -> "Max"
+        else -> range
+    }
+
     /**
      * Timestamp label for the widget header. Same day → "14:30"; older data is
      * marked with "yesterday"/"gestern" or the date so a stale snapshot can't

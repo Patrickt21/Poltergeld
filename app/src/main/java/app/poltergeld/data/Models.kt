@@ -37,7 +37,7 @@ data class AssetProfile(
     val dataSource: String? = null,
 )
 
-/** GET /api/v1/portfolio/performance – overall portfolio performance for a range. */
+/** GET /api/v2/portfolio/performance – overall portfolio performance for a range. */
 @Serializable
 data class PerformanceResponse(
     val performance: PerformanceNumbers? = null,
@@ -146,6 +146,25 @@ data class Activity(
     @Serializable(with = LenientDoubleSerializer::class)
     val fee: Double? = null,
     val currency: String? = null,
+    /** Pre-3.78 servers flag drafts with this field … */
+    val isDraft: Boolean? = null,
+    /** … newer ones with the system "Draft" tag. */
+    val tags: List<Tag> = emptyList(),
+) {
+    /** Planned activity that Ghostfolio returns but leaves out of the portfolio calculation. */
+    val draft: Boolean
+        get() = isDraft == true || tags.any { it.id == TAG_ID_DRAFT }
+
+    companion object {
+        /** Ghostfolio's built-in "Draft" tag (libs/common/src/lib/config.ts). */
+        const val TAG_ID_DRAFT = "0c077abd-eca2-4cbb-818c-6cefbf2d169a"
+    }
+}
+
+@Serializable
+data class Tag(
+    val id: String? = null,
+    val name: String? = null,
 )
 
 @Serializable

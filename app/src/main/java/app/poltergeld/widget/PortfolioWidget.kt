@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -103,8 +104,23 @@ class PortfolioWidget : GlanceAppWidget() {
     }
 }
 
-/** Ghostfolio API range keys and their chip labels. */
-private fun rangeChips() = listOf("1d" to "24h", "wtd" to "1W", "mtd" to "1M", "1y" to tr("1Y", "1J"))
+/** Width from which the widget has room for the extra YTD / Max chips. */
+private val WIDE_CHIP_ROW = 270.dp
+
+/**
+ * Range chips that fit the widget's width. A narrow widget keeps the four
+ * short-term chips; a range picked elsewhere (e.g. "max" in the app) is
+ * appended so the active one is always visible.
+ */
+private fun rangeChips(selected: String, width: Dp): List<Pair<String, String>> {
+    val keys = if (width >= WIDE_CHIP_ROW) {
+        listOf("1d", "wtd", "mtd", "ytd", "1y", "max")
+    } else {
+        listOf("1d", "wtd", "mtd", "1y")
+    }
+    val withSelected = if (selected in keys) keys else keys + selected
+    return withSelected.map { it to Format.rangeLabel(it) }
+}
 
 /**
  * Glance's LazyColumn renders through Android's RemoteViews collection
@@ -289,7 +305,7 @@ private fun Header(s: WidgetSnapshot, masked: Boolean, privacyOn: Boolean) {
 @Composable
 private fun RangeChipRow(selected: String) {
     Row(modifier = GlanceModifier.fillMaxWidth()) {
-        rangeChips().forEach { (key, label) ->
+        rangeChips(selected, LocalSize.current.width).forEach { (key, label) ->
             val isSelected = key == selected
             Text(
                 label,

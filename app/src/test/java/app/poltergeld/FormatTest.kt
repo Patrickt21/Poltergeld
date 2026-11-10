@@ -1,6 +1,7 @@
 package app.poltergeld
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -64,5 +65,17 @@ class FormatTest {
     @Test
     fun timeLabelZeroIsEmpty() {
         assertEquals("", Format.timeLabel(0, epoch(2026, 7, 27, 12, 0), zone, "gestern"))
+    }
+
+    @Test
+    fun everySupportedRangeHasALabel() {
+        L10n.set("en")
+        app.poltergeld.data.SUPPORTED_RANGES.forEach {
+            assertNotEquals("no label for $it", it, Format.rangeLabel(it))
+        }
+        assertEquals("1Y", Format.rangeLabel("1y"))
+        L10n.set("de")
+        assertEquals("1J", Format.rangeLabel("1y"))
+        L10n.set("en")
     }
 }

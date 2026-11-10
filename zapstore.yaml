@@ -1,6 +1,8 @@
 repository: https://github.com/Patrickt21/Poltergeld
-license: MIT
 tags:
-  - finance
-  - widget
-  - selfhosted
+    - finance
+    - widget
+    - selfhosted
+license: MIT
+metadata_sources:
+    - github
