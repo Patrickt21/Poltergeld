@@ -303,6 +303,10 @@ object GhostfolioClient {
                     url = target
                     return@repeat
                 }
+                // A 5xx is a server-side outage even when it comes with an HTML
+                // error page (e.g. the proxy's 502/503 while Ghostfolio restarts):
+                // transient and retried, not a "blocked by proxy" setup problem.
+                if (code in 500..599) throw HttpStatusException(code)
                 if (contentType.contains("text/html", ignoreCase = true)) {
                     throw ProxyBlockedException()
                 }

@@ -100,9 +100,13 @@ object SettingsRepository {
             it[KEY_URL] = normalizeUrl(baseUrl)
             it[KEY_TOKEN_ENC] = TokenCipher.encrypt(token.trim())
             it.remove(KEY_TOKEN_PLAIN)
-            // New credentials invalidate the cached JWT and base currency.
+            // New credentials invalidate the cached JWT and base currency –
+            // and the "last good" snapshots, which may belong to another
+            // account and must not resurface as stale data after an error.
             it.remove(KEY_BEARER_ENC)
             it.remove(KEY_BASE_CURRENCY)
+            SUPPORTED_RANGES.forEach { range -> it.remove(snapshotKey(range)) }
+            it.remove(stringPreferencesKey("last_snapshot")) // legacy, pre-1.8.0
         }
     }
 

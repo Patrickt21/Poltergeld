@@ -165,7 +165,12 @@ class WidgetConfigActivity : ComponentActivity() {
     private fun apply(appWidgetId: Int, mode: String, selected: Set<String>) {
         lifecycleScope.launch {
             val manager = GlanceAppWidgetManager(this@WidgetConfigActivity)
-            val glanceId = manager.getGlanceIdBy(appWidgetId)
+            // Throws for an id that isn't (or is no longer) one of our widgets.
+            val glanceId = runCatching { manager.getGlanceIdBy(appWidgetId) }.getOrNull()
+            if (glanceId == null) {
+                finish()
+                return@launch
+            }
             updateAppWidgetState(
                 this@WidgetConfigActivity, PreferencesGlanceStateDefinition, glanceId,
             ) { prefs ->

@@ -28,6 +28,7 @@ class OpenPositionAction : ActionCallback {
             Intent(context, SettingsActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra(WidgetKeys.SYMBOL_EXTRA_KEY, symbol)
+                .putExtra(WidgetKeys.DATA_SOURCE_EXTRA_KEY, parameters[WidgetKeys.DATA_SOURCE_EXTRA])
         )
     }
 }

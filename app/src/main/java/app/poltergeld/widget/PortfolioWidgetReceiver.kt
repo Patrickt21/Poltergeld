@@ -34,6 +34,13 @@ class PortfolioWidgetReceiver : GlanceAppWidgetReceiver() {
         }
     }
 
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        // Last widget removed: nothing left to refresh in the background.
+        // onEnabled schedules it again with the next widget.
+        WidgetScheduler.cancelPeriodic(context)
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: android.appwidget.AppWidgetManager,
@@ -58,6 +65,10 @@ object WidgetScheduler {
             .build()
         WorkManager.getInstance(context)
             .enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.UPDATE, req)
+    }
+
+    fun cancelPeriodic(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(PERIODIC)
     }
 
     fun refreshNow(context: Context) {

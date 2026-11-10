@@ -50,3 +50,27 @@ class TopFlopTest {
         assertTrue(flop.isEmpty())
     }
 }
+
+class WidgetRangeKeysTest {
+
+    @org.junit.Test
+    fun narrowWidgetKeepsFourChips() {
+        org.junit.Assert.assertEquals(listOf("1d", "wtd", "mtd", "1y"), widgetRangeKeys("1d", wide = false))
+    }
+
+    @org.junit.Test
+    fun rangePickedElsewhereTakesTheLastSlot() {
+        org.junit.Assert.assertEquals(listOf("1d", "wtd", "mtd", "max"), widgetRangeKeys("max", wide = false))
+        org.junit.Assert.assertEquals(
+            listOf("1d", "wtd", "mtd", "ytd", "1y", "5y"),
+            widgetRangeKeys("5y", wide = true),
+        )
+    }
+
+    @org.junit.Test
+    fun everyChipIsASupportedRange() {
+        (widgetRangeKeys("1d", wide = true) + widgetRangeKeys("1d", wide = false)).forEach {
+            org.junit.Assert.assertTrue(it in app.poltergeld.data.SUPPORTED_RANGES)
+        }
+    }
+}

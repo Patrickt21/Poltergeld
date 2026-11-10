@@ -92,11 +92,11 @@ private fun rangeChips() = SUPPORTED_RANGES.map { it to Format.rangeLabel(it) }
 // singleTask (see manifest) so a second widget tap while the app is already
 // open reuses this instance via onNewIntent instead of stacking a duplicate.
 class SettingsActivity : FragmentActivity() {
-    private val openSymbol = mutableStateOf<String?>(null)
+    private val openSymbol = mutableStateOf<PositionLink?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        openSymbol.value = intent?.getStringExtra(WidgetKeys.SYMBOL_EXTRA_KEY)
+        openSymbol.value = PositionLink.from(intent)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Scaffold { pad ->
@@ -109,7 +109,25 @@ class SettingsActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        openSymbol.value = intent.getStringExtra(WidgetKeys.SYMBOL_EXTRA_KEY)
+        openSymbol.value = PositionLink.from(intent)
+    }
+}
+
+/**
+ * A widget tap on a position. Deliberately not a data class: every tap is a
+ * new instance and therefore a new state value, so tapping the same position
+ * again (after going back) opens it again.
+ */
+private class PositionLink(val symbol: String, val dataSource: String?) {
+    fun matches(h: Holding): Boolean =
+        (h.assetProfile?.symbol == symbol || h.symbol == symbol) &&
+            (dataSource.isNullOrBlank() || h.assetProfile?.dataSource == dataSource)
+
+    companion object {
+        fun from(intent: Intent?): PositionLink? =
+            intent?.getStringExtra(WidgetKeys.SYMBOL_EXTRA_KEY)?.let {
+                PositionLink(it, intent.getStringExtra(WidgetKeys.DATA_SOURCE_EXTRA_KEY))
+            }
     }
 }
 
@@ -117,7 +135,7 @@ class SettingsActivity : FragmentActivity() {
 private fun AppRoot(
     modifier: Modifier = Modifier,
     activity: FragmentActivity,
-    initialSymbol: androidx.compose.runtime.State<String?>,
+    initialSymbol: androidx.compose.runtime.State<PositionLink?>,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -262,7 +280,7 @@ private fun OverviewScreen(
     modifier: Modifier = Modifier,
     settings: Settings,
     onOpenSettings: () -> Unit,
-    initialSymbol: String? = null,
+    initialSymbol: PositionLink? = null,
     masked: Boolean = false,
     onRevealPrivacy: () -> Unit = {},
     onHidePrivacy: () -> Unit = {},
@@ -287,18 +305,18 @@ private fun OverviewScreen(
     // Widget deep link: jump straight to the tapped position once its data
     // has loaded. initialSymbol itself never clears (it lives in the hosting
     // Activity so a second widget tap can reach it via onNewIntent), so this
-    // tracks which symbol was already handled – otherwise every later
+    // tracks which tap was already handled – otherwise every later
     // Refresh tap or range change (which produces a new `result` instance)
     // would re-fire the effect and yank the user back into the detail screen
-    // even after they'd pressed Back.
-    var handledSymbol by remember { mutableStateOf<String?>(null) }
+    // even after they'd pressed Back. Compared by identity: a second tap on
+    // the same position is a new link and opens it again.
+    var handledLink by remember { mutableStateOf<PositionLink?>(null) }
     LaunchedEffect(result, initialSymbol) {
-        val symbol = initialSymbol ?: return@LaunchedEffect
-        if (symbol == handledSymbol) return@LaunchedEffect
+        val link = initialSymbol ?: return@LaunchedEffect
+        if (link === handledLink) return@LaunchedEffect
         val r = result as? PortfolioResult.Success ?: return@LaunchedEffect
-        handledSymbol = symbol
-        r.holdings.find { it.assetProfile?.symbol == symbol || it.symbol == symbol }
-            ?.let { selected = it }
+        handledLink = link
+        r.holdings.find(link::matches)?.let { selected = it }
     }
 
     val current = selected
@@ -529,7 +547,11 @@ private fun DetailScreen(
             DetailRow(tr("Allocation", "Gewichtung"), Format.percent(it * 100))
         }
         holding.quantity?.let {
-            DetailRow(tr("Quantity", "Stückzahl"), String.format(L10n.numberLocale(), "%,.4f", it))
+            // Masked too: with the (public) market price it gives the value away.
+            DetailRow(
+                tr("Quantity", "Stückzahl"),
+                if (masked) Format.MASK else String.format(L10n.numberLocale(), "%,.4f", it),
+            )
         }
         holding.marketPrice?.let {
             DetailRow(
@@ -584,7 +606,14 @@ private fun DetailScreen(
                 )
             } else {
                 activities.sortedByDescending { it.date }.forEach { a ->
-                    ActivityRow(a, holding.assetProfile?.currency ?: baseCurrency, masked)
+                    // An activity's own currency wins: it can differ from the asset's.
+                    ActivityRow(
+                        a,
+                        a.currency?.takeIf { it.isNotBlank() }
+                            ?: holding.assetProfile?.currency
+                            ?: baseCurrency,
+                        masked,
+                    )
                 }
             }
         }

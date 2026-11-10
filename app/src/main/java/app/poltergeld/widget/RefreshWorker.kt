@@ -103,5 +103,6 @@ class RefreshWorker(
         allocation = allocationInPercentage,
         performance = performance,
         symbol = assetProfile?.symbol ?: symbol ?: displayName,
+        dataSource = assetProfile?.dataSource.orEmpty(),
     )
 }

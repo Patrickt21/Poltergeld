@@ -1,0 +1,12 @@
+* Fixed: the overall portfolio performance in the widget header never
+  showed up – it is now requested from Ghostfolio's current endpoint
+* New time ranges: year to date, 5 years and max – in the app, and YTD /
+  Max in the widget when it is wide enough
+* Fixed: tapping the same position in the widget a second time did not
+  open its detail page again
+* A short server outage (e.g. Ghostfolio restarting behind a proxy) is
+  now retried instead of being reported as "blocked by reverse proxy"
+* Privacy mode in the app now also hides a position's quantity
+* Activities show their own currency; draft activities are marked
+* Ghostfolio's login rate limit no longer shows up as "check token"
+* Background refresh stops when the last widget is removed

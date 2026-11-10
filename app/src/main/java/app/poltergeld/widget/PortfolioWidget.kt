@@ -118,18 +118,21 @@ class PortfolioWidget : GlanceAppWidget() {
 }
 
 /**
- * Range chips that fit the widget's width. A narrow widget keeps the four
- * short-term chips; a range picked elsewhere (e.g. "max" in the app) is
- * appended so the active one is always visible.
+ * Range chips that fit the widget's width. A narrow widget keeps four chips;
+ * a range picked elsewhere (e.g. "5y" in the app) takes the last slot rather
+ * than adding a chip, so the active one is always visible and the row never
+ * outgrows the widget.
  */
-private fun rangeChips(selected: String, width: Dp): List<Pair<String, String>> {
-    val keys = if (width >= WIDE_CHIP_ROW) {
+private fun rangeChips(selected: String, width: Dp): List<Pair<String, String>> =
+    widgetRangeKeys(selected, wide = width >= WIDE_CHIP_ROW).map { it to Format.rangeLabel(it) }
+
+internal fun widgetRangeKeys(selected: String, wide: Boolean): List<String> {
+    val keys = if (wide) {
         listOf("1d", "wtd", "mtd", "ytd", "1y", "max")
     } else {
         listOf("1d", "wtd", "mtd", "1y")
     }
-    val withSelected = if (selected in keys) keys else keys + selected
-    return withSelected.map { it to Format.rangeLabel(it) }
+    return if (selected in keys) keys else keys.dropLast(1) + selected
 }
 
 /**
@@ -363,7 +366,10 @@ private fun PositionRow(pos: WidgetPosition, currency: String, masked: Boolean) 
             .padding(horizontal = 10.dp, vertical = 8.dp)
             .clickable(
                 actionRunCallback<OpenPositionAction>(
-                    actionParametersOf(WidgetKeys.SYMBOL_EXTRA to pos.symbol)
+                    actionParametersOf(
+                        WidgetKeys.SYMBOL_EXTRA to pos.symbol,
+                        WidgetKeys.DATA_SOURCE_EXTRA to pos.dataSource,
+                    )
                 )
             ),
         verticalAlignment = Alignment.CenterVertically,

@@ -26,6 +26,8 @@ data class WidgetPosition(
     val performance: Double?,
     /** Stable identifier used by the per-widget position picker. */
     val symbol: String = "",
+    /** Disambiguates equal symbols from different data sources when opening the detail page. */
+    val dataSource: String = "",
 )
 
 /**

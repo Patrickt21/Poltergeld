@@ -23,6 +23,10 @@ object WidgetKeys {
     /** actionStartActivity parameter: which position was tapped. Same string as [SYMBOL_EXTRA_KEY]
      * because Glance turns action parameters into Intent extras of the same name. */
     val SYMBOL_EXTRA = ActionParameters.Key<String>(SYMBOL_EXTRA_KEY)
+
+    /** Data source of the tapped position (blank in snapshots from before 1.9.12). */
+    const val DATA_SOURCE_EXTRA_KEY = "dataSource"
+    val DATA_SOURCE_EXTRA = ActionParameters.Key<String>(DATA_SOURCE_EXTRA_KEY)
 }
 
 /** Display mode keys, shared by config UIs; labels via [widgetModeLabel]. */

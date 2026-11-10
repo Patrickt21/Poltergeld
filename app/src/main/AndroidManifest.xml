@@ -33,7 +33,7 @@
 
         <activity
             android:name=".widget.UnlockPrivacyActivity"
-            android:exported="true"
+            android:exported="false"
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:launchMode="singleTask"
