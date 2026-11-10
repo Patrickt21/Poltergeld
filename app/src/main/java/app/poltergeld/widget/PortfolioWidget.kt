@@ -60,10 +60,23 @@ private val SIZE_SMALL = DpSize(110.dp, 40.dp)
 private val SIZE_MEDIUM = DpSize(180.dp, 180.dp)
 private val SIZE_LARGE = DpSize(250.dp, 330.dp)
 
+/**
+ * Width from which the chip row has room for the extra YTD / Max chips
+ * (6 chips ≈ 260dp plus the 2 × 12dp root padding). In Responsive mode
+ * LocalSize only ever reports one of the declared sizes, so this threshold
+ * needs wide variants of the medium and large sizes to be reachable – they
+ * keep the same heights, so the auto layout choice is unaffected.
+ */
+private val WIDE_CHIP_ROW = 300.dp
+private val SIZE_MEDIUM_WIDE = DpSize(WIDE_CHIP_ROW, SIZE_MEDIUM.height)
+private val SIZE_LARGE_WIDE = DpSize(WIDE_CHIP_ROW, SIZE_LARGE.height)
+
 class PortfolioWidget : GlanceAppWidget() {
 
     override val stateDefinition = PreferencesGlanceStateDefinition
-    override val sizeMode = SizeMode.Responsive(setOf(SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE))
+    override val sizeMode = SizeMode.Responsive(
+        setOf(SIZE_SMALL, SIZE_MEDIUM, SIZE_LARGE, SIZE_MEDIUM_WIDE, SIZE_LARGE_WIDE)
+    )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val settings = SettingsRepository.get(context)
@@ -103,9 +116,6 @@ class PortfolioWidget : GlanceAppWidget() {
         val snapshotJson = Json { ignoreUnknownKeys = true }
     }
 }
-
-/** Width from which the widget has room for the extra YTD / Max chips. */
-private val WIDE_CHIP_ROW = 270.dp
 
 /**
  * Range chips that fit the widget's width. A narrow widget keeps the four
